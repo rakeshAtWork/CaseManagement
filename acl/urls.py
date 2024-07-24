@@ -10,7 +10,7 @@ urlpatterns = [
     # update and delete a role also you can get one role by providing the UUID of the role.(unit test case written)
 
     path('v1/role/user/create', views.RoleUserCreateAPI.as_view(), name='role_user_create'),
-    # this is for to assign a role to a list of User.
+    # this is for to assign a role to a list of User.(unit test case written)
     path('v1/privilege/list', views.RolePermissionFilterApi.as_view(), name='privilege_list'),
     # this is to list out all the privileges(unit test case written)
 
