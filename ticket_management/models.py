@@ -4,6 +4,8 @@ from django.contrib.auth import get_user_model
 User = get_user_model()
 
 
+
+
 class Department(models.Model):
     """
     Department Model
@@ -234,32 +236,7 @@ class SLA(models.Model):
 #         db_table = "category"
 #
 #
-# class Status(models.Model):
-#     """
-#     Status Model
-#     """
-#     name = models.CharField(max_length=150)
-#     status_code = models.IntegerField(default=0)
-#     color_code = models.CharField(max_length=150)
-#     highlight = models.IntegerField(default=0)
-#     created_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE,
-#                                    related_name="department_created_by")
-#     updated_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE,
-#                                    related_name="department_updated_by")
-#     created_at = models.DateTimeField(auto_now_add=True)
-#     updated_at = models.DateTimeField(null=True, blank=True)
-#     deleted_at = models.DateTimeField(null=True, blank=True)
-#
-#     objects = models.Manager()
-#
-#     def __str__(self):
-#         return self.name
-#
-#     class Meta:
-#         ordering = ['-created_at']
-#         db_table = "status"
-#
-#
+
 # class ClientManagement(models.Model):
 #     client_id = models.CharField(max_length=10)
 #     client_name = models.CharField(max_length=200)
