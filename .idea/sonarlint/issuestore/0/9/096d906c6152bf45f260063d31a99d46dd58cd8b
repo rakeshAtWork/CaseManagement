@@ -1,0 +1,8 @@
+
+fpython:S2208"GImport only needed names or import the module and then use its members.(­©‰ğ8‚ªÿ‚2
+jpython:S3457Š"EAdd replacement fields or use a normal string instead of an f-string.(¶Ó¨®ùÿÿÿÿ8ƒªÿ‚2
+jpython:S3457‘"EAdd replacement fields or use a normal string instead of an f-string.(¤Ø¢Âúÿÿÿÿ8ƒªÿ‚2
+jpython:S3457”"EAdd replacement fields or use a normal string instead of an f-string.(¤Ø¢Âúÿÿÿÿ8ƒªÿ‚2
+jpython:S3457Ã"EAdd replacement fields or use a normal string instead of an f-string.(ïêÃÛúÿÿÿÿ8ƒªÿ‚2
+epython:S3457Ç"EAdd replacement fields or use a normal string instead of an f-string.(à†Á¯8ƒªÿ‚2
+ipython:S6903ô"DDon't use `datetime.datetime.utcnow` to create this datetime object.(óÄ¼Ñÿÿÿÿÿ8ƒªÿ‚2
