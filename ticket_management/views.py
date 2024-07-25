@@ -1,9 +1,9 @@
 from rest_framework import generics
-from .models import Department, SLA, Status, Category, ProjectManagement
+from .models import Department, SLA, Status, Category, ProjectManagement, TicketType
 from .serializers import DepartmentSerializer, SLASerializer, StatusSerializer, StatusReadSerializer, \
     StatusFilterSerializer, CategorySerializer, \
     CategoryFilterSerializer, ProjectFilterSerializers, ProjectManagementReadSerializer, ProjectManagementSerializer, \
-    SLAUpdateSerializer, DepartmentFilterSerializer
+    SLAUpdateSerializer, DepartmentFilterSerializer, TicketTypeSerializer, TicketTypeUpdateSerializer
 from acl.privilege import CozentusPermission
 from django.core.paginator import Paginator
 from django.utils import timezone
@@ -13,7 +13,7 @@ from rest_framework.generics import CreateAPIView, RetrieveUpdateDestroyAPIView
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from . import serializers
-
+from rest_framework import serializers
 
 class DepartmentListCreateView(generics.ListCreateAPIView):
     queryset = Department.objects.filter(is_active=True, is_delete=False)
@@ -26,11 +26,15 @@ class DepartmentRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView)
 
 
 class SLACreate(generics.ListCreateAPIView):
+    # permission_classes = [CozentusPermission]
+
     serializer_class = SLASerializer
     queryset = SLA.objects.filter(is_delete=False)
 
 
 class SLARetrieveUpdateDelete(RetrieveUpdateDestroyAPIView):
+    # permission_classes = [CozentusPermission]
+
     serializer_class = SLAUpdateSerializer
     queryset = SLA.objects.all()
 
@@ -428,3 +432,18 @@ class DepartmentUpdateApi(RetrieveUpdateDestroyAPIView):
             return Response({"message": "Department deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
         else:
             return Response({"message": "Record not found."}, status=status.HTTP_404_NOT_FOUND)
+
+
+class TicketTypeCreateAPI(generics.ListCreateAPIView):
+    # permission_classes = [CozentusPermission]
+
+    serializer_class = TicketTypeSerializer
+    queryset = TicketType.objects.all()
+
+
+class TicketTypeUpdateAPI(generics.RetrieveUpdateDestroyAPIView):
+
+    # permission_classes = [CozentusPermission]
+
+    serializer_class = TicketTypeUpdateSerializer
+    queryset = TicketType.objects.all()

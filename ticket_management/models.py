@@ -1,6 +1,6 @@
 from django.db import models
 from django.contrib.auth import get_user_model
-
+import uuid
 User = get_user_model()
 
 
@@ -107,7 +107,7 @@ class Department(models.Model):
 
 #
 class SLA(models.Model):
-    id = models.UUIDField(primary_key=True)
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, unique=True)
     department = models.CharField(max_length=200)  # Add Foreign-key of the Department Table
     ticket_type = models.CharField(max_length=200)  # Add Foreign-key of the Ticket Table
     priority = models.CharField(max_length=50)
@@ -126,8 +126,9 @@ class SLA(models.Model):
         db_table = 'SLA'
         ordering = ['created_at']
 
+
 class TicketType(models.Model):
-    id = models.UUIDField(primary_key=True)
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, unique=True)
     name = models.CharField(max_length=255, blank=False, null=False)
     is_active = models.BooleanField(default=False)
     created_by = models.IntegerField(null=True)
@@ -279,47 +280,9 @@ class TicketType(models.Model):
 #         db_table = "user_department"
 #
 #
-# # Create your models here.
-# class TicketType(models.Model):
-#     id = models.UUIDField(primary_key=True)
-#     name = models.CharField(max_length=255, blank=False, null=False)
-#     is_active = models.BooleanField(default=False)
-#     created_by = models.IntegerField(null=True)
-#     created_at = models.DateTimeField(auto_now_add=True)
-#     updated_by = models.IntegerField(null=True)
-#     updated_at = models.DateTimeField(auto_now=True)
-#     deleted_at = models.DateTimeField(blank=True, null=True)
-#
-#     objects = models.Manager()
-#
-#     class Meta:
-#         db_table = 'ticket_type'
-#
 
 #
-#
-# class Category(models.Model):
-#     """
-#     Category Model
-#     """
-#     name = models.CharField(max_length=150)
-#
-#     created_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE,
-#                                    related_name="category_created_by")
-#     updated_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE,
-#                                    related_name="category_updated_by")
-#     created_at = models.DateTimeField(auto_now_add=True)
-#     updated_at = models.DateTimeField(null=True, blank=True)
-#     deleted_at = models.DateTimeField(null=True, blank=True)
-#
-#     objects = models.Manager()
-#
-#     def __str__(self):
-#         return self.name
-#
-#     class Meta:
-#         ordering = ['-created_at']
-#         db_table = "category"
+
 #
 #
 

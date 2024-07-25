@@ -2,7 +2,10 @@ from django.urls import path
 
 from . import views
 urlpatterns = [
-    path('v1/api/sla/add', views.SLACreate.as_view(), name='sla-create'),
+    path('v1/api/tickettype', views.TicketTypeCreateAPI.as_view(), name='ticket-create'),
+    path('v1/api/tickettype/<str:pk>', views.TicketTypeUpdateAPI.as_view(), name='ticket-update'),
+
+    path('v1/api/sla', views.SLACreate.as_view(), name='sla-create'),
     path('v1/api/sla/<str:pk>', views.SLARetrieveUpdateDelete.as_view(), name='sla-update'),
 
     path('department/list', views.DepartmentFilterApi.as_view(), name='department_list'),

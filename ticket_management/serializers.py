@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Department, SLA, Status, Category, ProjectManagement
+from .models import Department, SLA, Status, Category, ProjectManagement, TicketType
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
@@ -8,8 +8,7 @@ User = get_user_model()
 class SLAUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = SLA
-        fields = ('department', 'ticket_type', 'priority', 'response_time', 'resolution_time', 'is_delete')
-        read_only_fields = ('created_by', 'updated_by', 'created_at', 'updated_at', 'deleted_at')
+        fields = '__all__'
 
 
 class DepartmentSerializer(serializers.ModelSerializer):
@@ -22,7 +21,7 @@ class DepartmentSerializer(serializers.ModelSerializer):
 class SLASerializer(serializers.ModelSerializer):
     class Meta:
         model = SLA
-        exclude = ['id']
+        fields = "__all__"
 
     def create(self, validated_data):
         # Custom create method if needed
@@ -196,7 +195,7 @@ class DepartmentFilterSerializer(serializers.ModelSerializer):
     """
     This serializer is used for department filter
     """
-    name = serializers.CharField(max_length=100, required=False, allow_blank=True, allow_null=True)
+    name = serializers.CharField(source='department_name', required=False)
     order_by = serializers.CharField(required=False, allow_blank=True, allow_null=True, write_only=True)
     order_type = serializers.CharField(required=False, allow_blank=True, allow_null=True, write_only=True)
     page = serializers.IntegerField(required=False, write_only=True, allow_null=True)
@@ -206,4 +205,18 @@ class DepartmentFilterSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Department
-        fields = ('department_name', 'department_code', 'department_type', 'is_active')
+        fields = ('id', 'is_active', 'name', 'order_by', 'order_type', 'page', 'page_size')
+
+
+class TicketTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TicketType
+        fields = ('id', 'name', 'is_active')
+        read_only_fields = ('created_by', 'created_at', 'updated_by', 'updated_at', 'deleted_at')
+
+
+class TicketTypeUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TicketType
+        fields = ('name', 'is_active')
+        read_only_fields = ('created_by', 'created_at', 'updated_by', 'updated_at', 'deleted_at')
