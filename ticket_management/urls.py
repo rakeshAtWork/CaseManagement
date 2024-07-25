@@ -1,9 +1,24 @@
 from django.urls import path
-from .views import DepartmentListCreateView, DepartmentRetrieveUpdateDestroyView, SLARetrieveUpdateDestroyAPIView, SLAListCreateAPIView
 
+from . import views
 urlpatterns = [
-    path('departments/', DepartmentListCreateView.as_view(), name='department-list-create'),
-    path('departments/<int:pk>/', DepartmentRetrieveUpdateDestroyView.as_view(), name='department-detail'),
-    path('sla/', SLAListCreateAPIView.as_view(), name='sla-list-create'),
-    path('sla/<uuid:pk>/', SLARetrieveUpdateDestroyAPIView.as_view(), name='sla-detail'),
+    path('v1/api/sla/add', views.SLACreate.as_view(), name='sla-create'),
+    path('v1/api/sla/<str:pk>', views.SLARetrieveUpdateDelete.as_view(), name='sla-update'),
+
+    path('department/list', views.DepartmentFilterApi.as_view(), name='department_list'),
+    path('department', views.DepartmentCreateApi.as_view(), name='department_create'),
+    path('department/<int:pk>', views.DepartmentUpdateApi.as_view(), name='department_update'),
+
+    path('v1/status/list', views.StatusFilterApi.as_view(), name='status_list'),
+    path('v1/status', views.StatusCreateApi.as_view(), name='status_create'),
+    path('v1/status/<int:pk>', views.StatusUpdateApi.as_view(), name='status_update'),
+
+    path('v1/category/list', views.CategoryFilterApi.as_view(), name='category_list'),
+    path('v1/category', views.CategoryCreateApi.as_view(), name='category_create'),
+    path('v1/category/<int:pk>', views.CategoryUpdateApi.as_view(), name='category_update'),
+
+    path('v1/project/create', views.ProjectCreateApi.as_view(), name='project_create'),
+    path('v1/project/list/filter', views.ProjectFilterApi.as_view(), name='project_list_filter'),
+    path('v1/project/modify/<int:pk>', views.ProjectRetrieveUpdateDeleteApi.as_view(),
+         name='project_retrieve_update_destroy'),
 ]

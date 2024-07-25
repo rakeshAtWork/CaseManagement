@@ -4,6 +4,77 @@ from django.contrib.auth import get_user_model
 User = get_user_model()
 
 
+class Status(models.Model):
+    """
+    Status Model
+    """
+    name = models.CharField(max_length=150)
+    status_code = models.IntegerField(default=0)
+    color_code = models.CharField(max_length=150)
+    highlight = models.IntegerField(default=0)
+    created_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE,
+                                   related_name="status_created_by")
+    updated_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE,
+                                   related_name="status_updated_by")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(null=True, blank=True)
+    deleted_at = models.DateTimeField(null=True, blank=True)
+
+    objects = models.Manager()
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        ordering = ['-created_at']
+        db_table = "status"
+
+
+class Category(models.Model):
+    """
+    Category Model
+    """
+    name = models.CharField(max_length=150)
+
+    created_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE,
+                                   related_name="category_created_by")
+    updated_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE,
+                                   related_name="category_updated_by")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(null=True, blank=True)
+    deleted_at = models.DateTimeField(null=True, blank=True)
+
+    objects = models.Manager()
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        ordering = ['-created_at']
+        db_table = "category"
+
+
+class ProjectManagement(models.Model):
+    client_id = models.CharField(max_length=200)
+    department_id = models.CharField(max_length=200)  # Foreignkey!!
+    project_id = models.CharField(max_length=200)  # Foreignkey
+    project_manager_primary = models.CharField(max_length=200)
+    support_group_email = models.CharField(max_length=200)
+    product_owner = models.CharField(max_length=200, null=True, blank=True)
+    contact_name = models.CharField(max_length=200, null=True, blank=True)
+    contact_email = models.CharField(max_length=200, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.PositiveIntegerField()
+    is_active = models.BooleanField(default=True)
+    updated_at = models.DateTimeField(null=True)
+    updated_by = models.PositiveIntegerField(null=True, blank=True)
+    deleted_at = models.DateTimeField(null=True)
+
+    objects = models.Manager()
+
+    class Meta:
+        ordering = ['-created_at']
+        db_table = "project"
 
 
 class Department(models.Model):
@@ -12,7 +83,7 @@ class Department(models.Model):
     """
     department_name = models.CharField(max_length=150)
     department_code = models.CharField(max_length=150)
-    department_type = models.IntegerField(default=1)
+    department_type = models.CharField(max_length=150)
 
     created_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE,
                                    related_name="department_created_by")
@@ -54,6 +125,21 @@ class SLA(models.Model):
     class Meta:
         db_table = 'SLA'
         ordering = ['created_at']
+
+class TicketType(models.Model):
+    id = models.UUIDField(primary_key=True)
+    name = models.CharField(max_length=255, blank=False, null=False)
+    is_active = models.BooleanField(default=False)
+    created_by = models.IntegerField(null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_by = models.IntegerField(null=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    deleted_at = models.DateTimeField(blank=True, null=True)
+
+    objects = models.Manager()
+
+    class Meta:
+        db_table = 'ticket_type'
 
 # class Ticket(models.Model):
 #     ticket_no = models.CharField(max_length=10)
