@@ -63,6 +63,7 @@ class RoleFilterApi(APIView):
             dict_ = {key: value for key, value in dict_.items() if key}
 
             if request.user.client_id:
+
                 dict_["client_id"] = request.user.client_id
             roles = Role.objects.filter(**dict_)
             order_by_dict = {
