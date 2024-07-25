@@ -142,61 +142,103 @@ class TicketType(models.Model):
     class Meta:
         db_table = 'ticket_type'
 
-# class Ticket(models.Model):
-#     ticket_no = models.CharField(max_length=10)
-#     ticket_status = models.PositiveIntegerField()
-#     ticket_header = models.CharField(max_length=200)
-#     ticket_details = models.CharField(max_length=500)
-#     on_behalf = models.PositiveIntegerField()
-#     ticket_category = models.PositiveIntegerField()
-#     ticket_type = models.ForeignKey(TicketType, on_delete=models.CASCADE, related_name='ticket_ticket_type')
-#     department_id = models.ForeignKey(Department, on_delete=models.CASCADE, related_name='ticket_department')
-#     project_id = models.PositiveIntegerField()
-#     ticket_priority = models.PositiveIntegerField()
-#     assigned_to = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE,
-#                                     related_name='ticket_assigned_to')
-#     assigned_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE,
-#                                     related_name='ticket_assigned_by')
-#     assigned_at = models.DateTimeField(null=True, blank=True)
-#     reassigned_reason = models.CharField(max_length=500, null=True, blank=True)
-#     reassigned_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE,
-#                                       related_name='ticket_reassigned_by')
-#     reassigned_at = models.DateTimeField(null=True, blank=True)
-#     reassigned_status = models.PositiveIntegerField(null=True)
-#     hold_from = models.DateTimeField(null=True, blank=True)
-#     hold_to = models.DateTimeField(null=True, blank=True)
-#     cancellation_at = models.DateTimeField(null=True, blank=True)
-#     response_within = models.DateTimeField(null=True, blank=True)
-#     response_at = models.DateTimeField(null=True, blank=True)
-#     response_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE,
-#                                     related_name='ticket_response_by')
-#     response_status = models.PositiveIntegerField(null=True)
-#     response_breach = models.CharField(max_length=100, null=True, blank=True)
-#     response_breach_time = models.DateTimeField(null=True, blank=True)
-#     resolution_within = models.DateTimeField(null=True, blank=True)
-#     resolution_postponed_time = models.DateTimeField(null=True, blank=True)
-#     resolution_at = models.DateTimeField(null=True, blank=True)
-#     resolution_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE,
-#                                       related_name='ticket_resolution_by')
-#     resolution_status = models.PositiveIntegerField(null=True)
-#     resolution_breach = models.CharField(max_length=100, null=True, blank=True)
-#     resolution_breach_time = models.DateTimeField(null=True, blank=True)
-#     closed_at = models.DateTimeField(null=True, blank=True)
-#     comments = models.CharField(max_length=500, null=True, blank=True)
-#     tags = models.CharField(max_length=200, null=True, blank=True)
-#     is_delete = models.BooleanField(null=True)
-#     created_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE,
-#                                    related_name="ticket_created_by")
-#     updated_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE,
-#                                    related_name="ticket_updated_by")
-#     created_at = models.DateTimeField(auto_now_add=True)
-#     updated_at = models.DateTimeField(null=True, blank=True)
-#     deleted_at = models.DateTimeField(null=True, blank=True)
-#
-#     objects = models.Manager()
-#
-#     class Meta:
-#         db_table = 'ticket'
+
+class Ticket(models.Model):
+    ticket_no = models.CharField(max_length=10)
+    ticket_status = models.PositiveIntegerField()
+    ticket_header = models.CharField(max_length=200)
+    ticket_details = models.CharField(max_length=500)
+    on_behalf = models.PositiveIntegerField()
+    ticket_category = models.PositiveIntegerField()
+    ticket_type = models.ForeignKey(TicketType, on_delete=models.CASCADE, related_name='ticket_ticket_type')
+    department_id = models.ForeignKey(Department, on_delete=models.CASCADE, related_name='ticket_department')
+    project_id = models.PositiveIntegerField()
+    ticket_priority = models.PositiveIntegerField()
+    assigned_to = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE,
+                                    related_name='ticket_assigned_to')
+    assigned_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE,
+                                    related_name='ticket_assigned_by')
+    assigned_at = models.DateTimeField(null=True, blank=True)
+    reassigned_reason = models.CharField(max_length=500, null=True, blank=True)
+    reassigned_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE,
+                                      related_name='ticket_reassigned_by')
+    reassigned_at = models.DateTimeField(null=True, blank=True)
+    reassigned_status = models.PositiveIntegerField(null=True)
+    hold_from = models.DateTimeField(null=True, blank=True)
+    hold_to = models.DateTimeField(null=True, blank=True)
+    cancellation_at = models.DateTimeField(null=True, blank=True)
+    response_within = models.DateTimeField(null=True, blank=True)
+    response_at = models.DateTimeField(null=True, blank=True)
+    response_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE,
+                                    related_name='ticket_response_by')
+    response_status = models.PositiveIntegerField(null=True)
+    response_breach = models.CharField(max_length=100, null=True, blank=True)
+    response_breach_time = models.DateTimeField(null=True, blank=True)
+    resolution_within = models.DateTimeField(null=True, blank=True)
+    resolution_postponed_time = models.DateTimeField(null=True, blank=True)
+    resolution_at = models.DateTimeField(null=True, blank=True)
+    resolution_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE,
+                                      related_name='ticket_resolution_by')
+    resolution_status = models.PositiveIntegerField(null=True)
+    resolution_breach = models.CharField(max_length=100, null=True, blank=True)
+    resolution_breach_time = models.DateTimeField(null=True, blank=True)
+    closed_at = models.DateTimeField(null=True, blank=True)
+    comments = models.CharField(max_length=500, null=True, blank=True)
+    tags = models.CharField(max_length=200, null=True, blank=True)
+    is_delete = models.BooleanField(null=True)
+    created_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE,
+                                   related_name="ticket_created_by")
+    updated_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE,
+                                   related_name="ticket_updated_by")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(null=True, blank=True)
+    deleted_at = models.DateTimeField(null=True, blank=True)
+
+    objects = models.Manager()
+
+    class Meta:
+        db_table = 'ticket'
+
+
+class TicketFollower(models.Model):
+    ticket_id = models.ForeignKey(Ticket, on_delete=models.CASCADE, related_name='ticket_follower_ticket')
+    follower_id = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE,
+                                    related_name="ticket_follower_follower_id")
+    created_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE,
+                                   related_name="ticket_follower_created_by")
+    updated_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE,
+                                   related_name="ticket_follower_updated_by")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(null=True, blank=True)
+    deleted_at = models.DateTimeField(null=True, blank=True)
+
+    objects = models.Manager()
+
+    class Meta:
+        db_table = 'ticket_follower'
+
+
+class TicketRevision(models.Model):
+    ticket_id = models.ForeignKey(Ticket, on_delete=models.CASCADE, related_name='ticket_revision_ticket')
+    revision_status = models.PositiveIntegerField()
+    pti = models.PositiveIntegerField()
+    action_taken = models.DateTimeField()
+    before_revision = models.CharField(max_length=500)
+    after_revision = models.CharField(max_length=500)
+    created_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE,
+                                   related_name="ticket_revision_created_by")
+    updated_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE,
+                                   related_name="ticket_revision_updated_by")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(null=True, blank=True)
+    deleted_at = models.DateTimeField(null=True, blank=True)
+
+    objects = models.Manager()
+
+    class Meta:
+        db_table = 'ticket_revision'
+
+
 
 
 # class TicketBehalf(models.Model):
@@ -233,30 +275,7 @@ class TicketType(models.Model):
 #     class Meta:
 #         db_table = 'ticket_follower'
 
-#
-# class TicketRevision(models.Model):
-#     ticket_id = models.ForeignKey(Ticket, on_delete=models.CASCADE, related_name='ticket_revision_ticket')
-#     revision_status = models.PositiveIntegerField()
-#     pti = models.PositiveIntegerField()
-#     action_taken = models.DateTimeField()
-#     before_revision = models.CharField(max_length=500)
-#     after_revision = models.CharField(max_length=500)
-#     created_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE,
-#                                    related_name="ticket_revision_created_by")
-#     updated_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE,
-#                                    related_name="ticket_revision_updated_by")
-#     created_at = models.DateTimeField(auto_now_add=True)
-#     updated_at = models.DateTimeField(null=True, blank=True)
-#     deleted_at = models.DateTimeField(null=True, blank=True)
-#
-#     objects = models.Manager()
-#
-#     class Meta:
-#         db_table = 'ticket_revision'
 
-# Create your models here.
-
-#
 #
 # class UserDepartment(models.Model):
 #     """
@@ -281,49 +300,4 @@ class TicketType(models.Model):
 #
 #
 
-#
 
-#
-#
-
-# class ClientManagement(models.Model):
-#     client_id = models.CharField(max_length=10)
-#     client_name = models.CharField(max_length=200)
-#     client_location = models.CharField(max_length=200)
-#     contact_name = models.CharField(max_length=200)
-#     contact_email = models.CharField(max_length=200)
-#     created_at = models.DateTimeField(auto_now_add=True)
-#     created_by = models.PositiveIntegerField()
-#     client_status = models.BooleanField(default=True)
-#     updated_at = models.DateTimeField(null=True)
-#     updated_by = models.PositiveIntegerField(null=True, blank=True)
-#     deleted_at = models.DateTimeField(null=True)
-#
-#     objects = models.Manager()
-#
-#     class Meta:
-#         ordering = ['-created_at']
-#         db_table = "client"
-#
-#
-# class ProjectManagement(models.Model):
-#     client_id = models.CharField(max_length=200)
-#     department_id = models.CharField(max_length=200)  # Foreignkey!!
-#     project_id = models.CharField(max_length=200)  # Foreignkey
-#     project_manager_primary = models.CharField(max_length=200)
-#     support_group_email = models.CharField(max_length=200)
-#     product_owner = models.CharField(max_length=200, null=True, blank=True)
-#     contact_name = models.CharField(max_length=200, null=True, blank=True)
-#     contact_email = models.CharField(max_length=200, null=True, blank=True)
-#     created_at = models.DateTimeField(auto_now_add=True)
-#     created_by = models.PositiveIntegerField()
-#     is_active = models.BooleanField(default=True)
-#     updated_at = models.DateTimeField(null=True)
-#     updated_by = models.PositiveIntegerField(null=True, blank=True)
-#     deleted_at = models.DateTimeField(null=True)
-#
-#     objects = models.Manager()
-#
-#     class Meta:
-#         ordering = ['-created_at']
-#         db_table = "project"

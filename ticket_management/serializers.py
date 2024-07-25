@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Department, SLA, Status, Category, ProjectManagement, TicketType
+from .models import Department, SLA, Status, Category, ProjectManagement, TicketType, TicketRevision, TicketFollower, Ticket
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
@@ -220,3 +220,130 @@ class TicketTypeUpdateSerializer(serializers.ModelSerializer):
         model = TicketType
         fields = ('name', 'is_active')
         read_only_fields = ('created_by', 'created_at', 'updated_by', 'updated_at', 'deleted_at')
+
+
+class TicketFollowerSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TicketFollower
+        fields = (
+            'id', 'ticket_id', 'follower_id', 'created_by', 'created_at', 'updated_by', 'updated_at', 'deleted_at')
+        read_only_fields = ('created_by', 'created_at', 'updated_by', 'updated_at', 'deleted_at')
+
+
+class TicketFollowerUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TicketFollower
+        fields = ('follower_id',)
+        read_only_fields = ('created_by', 'created_at', 'updated_by', 'updated_at', 'deleted_at')
+
+
+class TicketFollowerFilterSerializer(serializers.ModelSerializer):
+    ticket_id = serializers.IntegerField(required=False, allow_null=True)
+    follower_id = serializers.IntegerField(required=False, allow_null=True)
+    created_at = serializers.DateTimeField(allow_null=True, required=False)
+    created_by = serializers.IntegerField(allow_null=True, required=False)
+    updated_at = serializers.DateTimeField(allow_null=True, required=False)
+    updated_by = serializers.IntegerField(allow_null=True, required=False)
+    order_by = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    order_type = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    page = serializers.IntegerField(required=False, allow_null=True)
+    per_page = serializers.IntegerField(required=False, allow_null=True)
+    export = serializers.BooleanField(required=False, allow_null=True, default=False)
+
+    class Meta:
+        model = TicketFollower
+        fields = (
+            'id', 'ticket_id', 'follower_id', 'created_at', 'created_by', 'updated_at', 'updated_by', 'order_by',
+            'order_type', 'page', 'per_page', 'export')
+
+
+class TicketRevisionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TicketRevision
+        fields = (
+            'id', 'ticket_id', 'revision_status', 'pti', 'action_taken', 'before_revision', 'after_revision',
+            'created_by',
+            'created_at', 'updated_by', 'updated_at', 'deleted_at')
+        read_only_fields = ('created_by', 'created_at', 'updated_by', 'updated_at', 'deleted_at')
+
+
+class TicketRevisionUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TicketRevision
+        fields = ('revision_status', 'pti', 'action_taken', 'before_revision', 'after_revision')
+        read_only_fields = ('created_by', 'created_at', 'updated_by', 'updated_at', 'deleted_at')
+
+
+class TicketRevisionFilterSerializer(serializers.ModelSerializer):
+    ticket_id = serializers.IntegerField(required=False, allow_null=True)
+    revision_status = serializers.IntegerField(required=False, allow_null=True)
+    pti = serializers.IntegerField(required=False, allow_null=True)
+    action_taken = serializers.DateTimeField(allow_null=True, required=False)
+    before_revision = serializers.CharField(max_length=500, required=False, allow_blank=True, allow_null=True)
+    after_revision = serializers.CharField(max_length=500, required=False, allow_blank=True, allow_null=True)
+    created_at = serializers.DateTimeField(allow_null=True, required=False)
+    created_by = serializers.IntegerField(allow_null=True, required=False)
+    updated_at = serializers.DateTimeField(allow_null=True, required=False)
+    updated_by = serializers.IntegerField(allow_null=True, required=False)
+    order_by = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    order_type = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    page = serializers.IntegerField(required=False, allow_null=True)
+    per_page = serializers.IntegerField(required=False, allow_null=True)
+    export = serializers.BooleanField(required=False, allow_null=True, default=False)
+
+    class Meta:
+        model = TicketRevision
+        fields = (
+            'ticket_id', 'revision_status', 'pti', 'action_taken', 'before_revision', 'after_revision',
+            'created_at', 'created_by', 'updated_at', 'updated_by', 'order_by', 'order_type', 'page', 'per_page',
+            'export')
+
+
+class TicketSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Ticket
+        fields = '__all__'
+        read_only_fields = ('created_by', 'updated_by', 'created_at', 'updated_at', 'deleted_at')
+
+
+class TicketUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Ticket
+        fields = (
+            'ticket_no', 'ticket_status', 'ticket_header', 'ticket_details', 'on_behalf', 'ticket_category',
+            'ticket_type',
+            'department_id', 'project_id', 'ticket_priority', 'assigned_to', 'assigned_by', 'assigned_at',
+            'reassigned_reason', 'reassigned_by', 'reassigned_at', 'reassigned_status', 'hold_from', 'hold_to',
+            'cancellation_at', 'response_within', 'response_at', 'response_by', 'response_status', 'response_breach',
+            'response_breach_time', 'resolution_within', 'resolution_postponed_time', 'resolution_at', 'resolution_by',
+            'resolution_status', 'resolution_breach', 'resolution_breach_time', 'closed_at', 'comments', 'tags',
+            'is_delete'
+        )
+        read_only_fields = ('created_by', 'created_at', 'updated_by', 'updated_at', 'deleted_at')
+
+
+class TicketFilterSerializer(serializers.ModelSerializer):
+    ticket_no = serializers.CharField(max_length=10, required=False, allow_blank=True, allow_null=True)
+    ticket_status = serializers.IntegerField(required=False, allow_null=True)
+    ticket_category = serializers.IntegerField(required=False, allow_null=True)
+    ticket_type = serializers.IntegerField(required=False, allow_null=True)
+    department_id = serializers.IntegerField(required=False, allow_null=True)
+    project_id = serializers.IntegerField(required=False, allow_null=True)
+    ticket_priority = serializers.IntegerField(required=False, allow_null=True)
+    created_at = serializers.DateTimeField(allow_null=True, required=False)
+    created_by = serializers.IntegerField(allow_null=True, required=False)
+    updated_at = serializers.DateTimeField(allow_null=True, required=False)
+    updated_by = serializers.IntegerField(allow_null=True, required=False)
+    order_by = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    order_type = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    page = serializers.IntegerField(required=False, allow_null=True)
+    per_page = serializers.IntegerField(required=False, allow_null=True)
+    export = serializers.BooleanField(required=False, allow_null=True, default=False)
+
+    class Meta:
+        model = Ticket
+        fields = (
+            'ticket_no', 'ticket_status', 'ticket_category', 'ticket_type', 'department_id', 'project_id',
+            'ticket_priority',
+            'created_at', 'created_by', 'updated_at', 'updated_by', 'order_by', 'order_type', 'page', 'per_page',
+            'export')

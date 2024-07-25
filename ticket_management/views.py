@@ -1,9 +1,13 @@
 from rest_framework import generics
-from .models import Department, SLA, Status, Category, ProjectManagement, TicketType
+from .models import Department, SLA, Status, Category, ProjectManagement, TicketType, TicketFollower, TicketRevision, \
+    Ticket
 from .serializers import DepartmentSerializer, SLASerializer, StatusSerializer, StatusReadSerializer, \
     StatusFilterSerializer, CategorySerializer, \
     CategoryFilterSerializer, ProjectFilterSerializers, ProjectManagementReadSerializer, ProjectManagementSerializer, \
-    SLAUpdateSerializer, DepartmentFilterSerializer, TicketTypeSerializer, TicketTypeUpdateSerializer
+    SLAUpdateSerializer, DepartmentFilterSerializer, TicketTypeSerializer, TicketTypeUpdateSerializer, \
+    TicketRevisionSerializer, TicketFollowerSerializer, TicketFollowerFilterSerializer, TicketFollowerUpdateSerializer, \
+    TicketRevisionFilterSerializer, TicketRevisionUpdateSerializer, TicketSerializer, TicketUpdateSerializer, \
+    TicketFilterSerializer
 from acl.privilege import CozentusPermission
 from django.core.paginator import Paginator
 from django.utils import timezone
@@ -14,6 +18,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from . import serializers
 from rest_framework import serializers
+
 
 class DepartmentListCreateView(generics.ListCreateAPIView):
     queryset = Department.objects.filter(is_active=True, is_delete=False)
@@ -442,8 +447,207 @@ class TicketTypeCreateAPI(generics.ListCreateAPIView):
 
 
 class TicketTypeUpdateAPI(generics.RetrieveUpdateDestroyAPIView):
-
     # permission_classes = [CozentusPermission]
 
     serializer_class = TicketTypeUpdateSerializer
     queryset = TicketType.objects.all()
+
+
+class TicketFollowerCreateAPI(generics.CreateAPIView):
+    queryset = TicketFollower.objects.filter(deleted_at__isnull=True)
+    serializer_class = TicketFollowerSerializer
+
+
+class TicketFollowerFilterAPI(APIView):
+    serializer_class = TicketFollowerFilterSerializer
+
+    @swagger_auto_schema(request_body=TicketFollowerFilterSerializer)
+    def post(self, request):
+        """
+        Retrieve ticket follower data with pagination and filter
+        """
+        try:
+            per_page = request.data.get("per_page", 50)
+            page = request.data.get("page", 1)
+            if page < 1 or per_page < 1:
+                return Response({"message": "page and page size should be positive integer"},
+                                status=status.HTTP_400_BAD_REQUEST)
+
+            order_by = request.data.get('order_by')
+            order_type = request.data.get('order_type')
+            serializer = TicketFollowerFilterSerializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            data = serializer.data
+            filter_dict = {
+                "ticket_id": "ticket_id", "follower_id": "follower_id",
+                "created_at": "created_at", "created_by": "created_by",
+                "updated_at": "updated_at", "updated_by": "updated_by"
+            }
+            query_dict = {filter_dict.get(key, None): value for key, value in data.items() if
+                          value or isinstance(value, (int, bool))}
+            query_dict = {key: value for key, value in query_dict.items() if key}
+            queryset = TicketFollower.objects.filter(**query_dict)
+            order_dict = {
+                "ticket_id": "ticket_id", "follower_id": "follower_id",
+                "created_at": "created_at", "created_by": "created_by",
+                "updated_at": "updated_at", "updated_by": "updated_by"
+            }
+            query_filter = order_dict.get(order_by, None)
+            if query_filter:
+                if order_type == "desc":
+                    query_filter = f"-{query_filter}"
+                queryset = queryset.order_by(query_filter)
+            paginator = Paginator(queryset, per_page)
+            number_pages = paginator.num_pages
+            if page > number_pages:
+                return Response({"message": "Page not found"}, status=status.HTTP_400_BAD_REQUEST)
+            page_obj = paginator.get_page(page)
+            serializer = TicketFollowerSerializer(page_obj, many=True)
+            data = serializer.data
+            return Response({"count": queryset.count(), "results": data})
+
+        except ValueError as e:
+            return Response({"message": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as ee:
+            return Response({"message": str(ee)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class TicketFollowerUpdateAPI(RetrieveUpdateDestroyAPIView):
+    queryset = TicketFollower.objects.all()
+    serializer_class = TicketFollowerUpdateSerializer
+
+
+class TicketRevisionCreateAPI(CreateAPIView):
+    queryset = TicketRevision.objects.filter(deleted_at__isnull=True)
+    serializer_class = TicketRevisionSerializer
+
+
+class TicketRevisionFilterAPI(APIView):
+    serializer_class = TicketRevisionFilterSerializer
+
+    @swagger_auto_schema(request_body=TicketRevisionFilterSerializer)
+    def post(self, request):
+        """
+        Retrieve ticket revision data with pagination and filter
+        """
+        try:
+            per_page = request.data.get("per_page", 50)
+            page = request.data.get("page", 1)
+            if page < 1 or per_page < 1:
+                return Response({"message": "page and page size should be positive integer"},
+                                status=status.HTTP_400_BAD_REQUEST)
+
+            order_by = request.data.get('order_by')
+            order_type = request.data.get('order_type')
+            serializer = TicketRevisionFilterSerializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            data = serializer.data
+            filter_dict = {
+                "ticket_id": "ticket_id", "revision_status": "revision_status",
+                "pti": "pti", "action_taken": "action_taken",
+                "before_revision": "before_revision", "after_revision": "after_revision",
+                "created_at": "created_at", "created_by": "created_by",
+                "updated_at": "updated_at", "updated_by": "updated_by"
+            }
+            query_dict = {filter_dict.get(key, None): value for key, value in data.items() if
+                          value or isinstance(value, (int, bool))}
+            query_dict = {key: value for key, value in query_dict.items() if key}
+            queryset = TicketRevision.objects.filter(**query_dict)
+            order_dict = {
+                "ticket_id": "ticket_id", "revision_status": "revision_status",
+                "pti": "pti", "action_taken": "action_taken",
+                "before_revision": "before_revision", "after_revision": "after_revision",
+                "created_at": "created_at", "created_by": "created_by",
+                "updated_at": "updated_at", "updated_by": "updated_by"
+            }
+            query_filter = order_dict.get(order_by, None)
+            if query_filter:
+                if order_type == "desc":
+                    query_filter = f"-{query_filter}"
+                queryset = queryset.order_by(query_filter)
+            paginator = Paginator(queryset, per_page)
+            number_pages = paginator.num_pages
+            if page > number_pages:
+                return Response({"message": "Page not found"}, status=status.HTTP_400_BAD_REQUEST)
+            page_obj = paginator.get_page(page)
+            serializer = TicketRevisionSerializer(page_obj, many=True)
+            data = serializer.data
+            return Response({"count": queryset.count(), "results": data})
+
+        except ValueError as e:
+            return Response({"message": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as ee:
+            return Response({"message": str(ee)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class TicketRevisionUpdateAPI(RetrieveUpdateDestroyAPIView):
+    queryset = TicketRevision.objects.all()
+    serializer_class = TicketRevisionUpdateSerializer
+
+
+class TicketCreateAPI(CreateAPIView):
+    queryset = Ticket.objects.filter(is_delete=False)
+    serializer_class = TicketSerializer
+
+
+class TicketFilterAPI(APIView):
+    serializer_class = TicketFilterSerializer
+
+    @swagger_auto_schema(request_body=TicketFilterSerializer)
+    def post(self, request):
+        """
+        Retrieve ticket data with pagination and filter
+        """
+        try:
+            per_page = request.data.get("per_page", 50)
+            page = request.data.get("page", 1)
+            if page < 1 or per_page < 1:
+                return Response({"message": "page and page size should be positive integer"},
+                                status=status.HTTP_400_BAD_REQUEST)
+
+            order_by = request.data.get('order_by')
+            order_type = request.data.get('order_type')
+            serializer = TicketFilterSerializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            data = serializer.data
+            filter_dict = {
+                "ticket_no": "ticket_no__icontains", "ticket_status": "ticket_status",
+                "ticket_category": "ticket_category", "ticket_type": "ticket_type",
+                "department_id": "department_id", "project_id": "project_id",
+                "ticket_priority": "ticket_priority", "created_at": "created_at",
+                "created_by": "created_by", "updated_at": "updated_at", "updated_by": "updated_by"
+            }
+            query_dict = {filter_dict.get(key, None): value for key, value in data.items() if
+                          value or isinstance(value, (int, bool))}
+            query_dict = {key: value for key, value in query_dict.items() if key}
+            queryset = Ticket.objects.filter(**query_dict)
+            order_dict = {
+                "ticket_no": "ticket_no", "ticket_status": "ticket_status",
+                "ticket_category": "ticket_category", "ticket_type": "ticket_type",
+                "department_id": "department_id", "project_id": "project_id",
+                "ticket_priority": "ticket_priority", "created_at": "created_at",
+                "created_by": "created_by", "updated_at": "updated_at", "updated_by": "updated_by"
+            }
+            query_filter = order_dict.get(order_by, None)
+            if query_filter:
+                if order_type == "desc":
+                    query_filter = f"-{query_filter}"
+                queryset = queryset.order_by(query_filter)
+            paginator = Paginator(queryset, per_page)
+            number_pages = paginator.num_pages
+            if page > number_pages:
+                return Response({"message": "Page not found"}, status=status.HTTP_400_BAD_REQUEST)
+            page_obj = paginator.get_page(page)
+            serializer = TicketSerializer(page_obj, many=True)
+            data = serializer.data
+            return Response({"count": queryset.count(), "results": data})
+
+        except ValueError as e:
+            return Response({"message": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as ee:
+            return Response({"message": str(ee)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class TicketUpdateAPI(RetrieveUpdateDestroyAPIView):
+    queryset = Ticket.objects.all()
+    serializer_class = TicketUpdateSerializer
