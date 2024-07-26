@@ -21,24 +21,29 @@ from rest_framework import serializers
 
 
 class DepartmentListCreateView(generics.ListCreateAPIView):
+    permission_classes = [CozentusPermission]
     queryset = Department.objects.filter(is_active=True, is_delete=False)
     serializer_class = DepartmentSerializer
 
 
 class DepartmentRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = [CozentusPermission]
     queryset = Department.objects.filter(is_active=True, is_delete=False)
     serializer_class = DepartmentSerializer
 
 
 class SLACreate(generics.ListCreateAPIView):
-    # permission_classes = [CozentusPermission]
+    permission_classes = [CozentusPermission]
 
     serializer_class = SLASerializer
     queryset = SLA.objects.filter(is_delete=False)
 
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user.id)
+
 
 class SLARetrieveUpdateDelete(RetrieveUpdateDestroyAPIView):
-    # permission_classes = [CozentusPermission]
+    permission_classes = [CozentusPermission]
 
     serializer_class = SLAUpdateSerializer
     queryset = SLA.objects.all()
@@ -48,7 +53,7 @@ class StatusCreateApi(CreateAPIView):
     """
     This view class is used to Create a new Status
     """
-    # permission_classes = (CozentusPermission,)
+    permission_classes = (CozentusPermission,)
     serializer_class = StatusSerializer
     queryset = Status.objects.all()
 
@@ -60,7 +65,7 @@ class StatusUpdateApi(RetrieveUpdateDestroyAPIView):
     """
     This view class is used to update an existing status
     """
-    # permission_classes = (CozentusPermission,)
+    permission_classes = (CozentusPermission,)
     serializer_class = StatusSerializer
     queryset = Status.objects.all()
 
@@ -80,7 +85,7 @@ class StatusFilterApi(APIView):
     """
     This view class is used to return status data with filter and pagination
     """
-    # permission_classes = (CozentusPermission,)
+    permission_classes = (CozentusPermission,)
     serializer_class = StatusSerializer
 
     @swagger_auto_schema(request_body=StatusReadSerializer)
@@ -131,7 +136,7 @@ class CategoryFilterApi(APIView):
     """
     This view class is used to return category data with filter and pagination
     """
-    # permission_classes = (CozentusPermission,)
+    permission_classes = (CozentusPermission,)
     serializer_class = CategoryFilterSerializer
 
     @swagger_auto_schema(request_body=CategoryFilterSerializer)
@@ -186,7 +191,7 @@ class CategoryCreateApi(CreateAPIView):
     """
     This view class is used to Create a new category
     """
-    # permission_classes = (CozentusPermission,)
+    permission_classes = (CozentusPermission,)
     # cozentus_object_permissions = {
     #     'GET': (permission_department_list,),
     #     'POST': (permission_department_create,)
@@ -209,7 +214,7 @@ class CategoryUpdateApi(RetrieveUpdateDestroyAPIView):
     #     'DELETE': (permission_department_delete,)
     #
     # }
-    # permission_classes = (CozentusPermission,)
+    permission_classes = (CozentusPermission,)
     serializer_class = CategorySerializer
     queryset = Category.objects.all()
 
@@ -257,6 +262,7 @@ class ProjectRetrieveUpdateDeleteApi(RetrieveUpdateDestroyAPIView):
 
 class ProjectFilterApi(APIView):
     serializer_class = ProjectManagementReadSerializer
+    permission_classes = (CozentusPermission,)
 
     @swagger_auto_schema(request_body=ProjectFilterSerializers)
     def post(self, request):
@@ -336,6 +342,7 @@ class DepartmentFilterApi(APIView):
         # 'DELETE': (permission_department_delete,)
 
     }
+    permission_classes = (CozentusPermission,)
 
     @swagger_auto_schema(request_body=DepartmentSerializer)
     def post(self, request):
@@ -411,7 +418,7 @@ class DepartmentCreateApi(CreateAPIView):
     """
     This view class is used to Create a new department
     """
-    # permission_classes = (CozentusPermission,)
+    permission_classes = (CozentusPermission,)
     serializer_class = DepartmentSerializer
     queryset = Department.objects.all()
 
@@ -423,7 +430,7 @@ class DepartmentUpdateApi(RetrieveUpdateDestroyAPIView):
     """
     This view class is used to update an existing department
     """
-    # permission_classes = (CozentusPermission,)
+    permission_classes = (CozentusPermission,)
     serializer_class = DepartmentSerializer
     queryset = Department.objects.all()
 
@@ -440,25 +447,30 @@ class DepartmentUpdateApi(RetrieveUpdateDestroyAPIView):
 
 
 class TicketTypeCreateAPI(generics.ListCreateAPIView):
-    # permission_classes = [CozentusPermission]
+    permission_classes = [CozentusPermission]
 
     serializer_class = TicketTypeSerializer
     queryset = TicketType.objects.all()
 
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user.id)
+
 
 class TicketTypeUpdateAPI(generics.RetrieveUpdateDestroyAPIView):
-    # permission_classes = [CozentusPermission]
+    permission_classes = [CozentusPermission]
 
     serializer_class = TicketTypeUpdateSerializer
     queryset = TicketType.objects.all()
 
 
 class TicketFollowerCreateAPI(generics.CreateAPIView):
+    permission_classes = [CozentusPermission]
     queryset = TicketFollower.objects.filter(deleted_at__isnull=True)
     serializer_class = TicketFollowerSerializer
 
 
 class TicketFollowerFilterAPI(APIView):
+    permission_classes = [CozentusPermission]
     serializer_class = TicketFollowerFilterSerializer
 
     @swagger_auto_schema(request_body=TicketFollowerFilterSerializer)
@@ -513,17 +525,20 @@ class TicketFollowerFilterAPI(APIView):
 
 
 class TicketFollowerUpdateAPI(RetrieveUpdateDestroyAPIView):
+    permission_classes = [CozentusPermission]
     queryset = TicketFollower.objects.all()
     serializer_class = TicketFollowerUpdateSerializer
 
 
 class TicketRevisionCreateAPI(CreateAPIView):
+    permission_classes = [CozentusPermission]
     queryset = TicketRevision.objects.filter(deleted_at__isnull=True)
     serializer_class = TicketRevisionSerializer
 
 
 class TicketRevisionFilterAPI(APIView):
     serializer_class = TicketRevisionFilterSerializer
+    permission_classes = [serializer_class]
 
     @swagger_auto_schema(request_body=TicketRevisionFilterSerializer)
     def post(self, request):
@@ -581,17 +596,20 @@ class TicketRevisionFilterAPI(APIView):
 
 
 class TicketRevisionUpdateAPI(RetrieveUpdateDestroyAPIView):
+    permission_classes = [CozentusPermission]
     queryset = TicketRevision.objects.all()
     serializer_class = TicketRevisionUpdateSerializer
 
 
 class TicketCreateAPI(CreateAPIView):
+    permission_classes = [CozentusPermission]
     queryset = Ticket.objects.filter(is_delete=False)
     serializer_class = TicketSerializer
 
 
 class TicketFilterAPI(APIView):
     serializer_class = TicketFilterSerializer
+    permission_classes = [CozentusPermission]
 
     @swagger_auto_schema(request_body=TicketFilterSerializer)
     def post(self, request):
@@ -649,5 +667,6 @@ class TicketFilterAPI(APIView):
 
 
 class TicketUpdateAPI(RetrieveUpdateDestroyAPIView):
+    permission_classes = [CozentusPermission]
     queryset = Ticket.objects.all()
     serializer_class = TicketUpdateSerializer

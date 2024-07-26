@@ -21,10 +21,6 @@ class Status(models.Model):
     deleted_at = models.DateTimeField(null=True, blank=True)
 
     objects = models.Manager()
-
-    def __str__(self):
-        return self.name
-
     class Meta:
         ordering = ['-created_at']
         db_table = "status"
@@ -45,9 +41,6 @@ class Category(models.Model):
     deleted_at = models.DateTimeField(null=True, blank=True)
 
     objects = models.Manager()
-
-    def __str__(self):
-        return self.name
 
     class Meta:
         ordering = ['-created_at']
@@ -97,8 +90,6 @@ class Department(models.Model):
 
     objects = models.Manager()
 
-    def __str__(self):
-        return self.department_name
 
     class Meta:
         ordering = ['-created_at']
@@ -241,63 +232,5 @@ class TicketRevision(models.Model):
 
 
 
-# class TicketBehalf(models.Model):
-#     ticket_id = models.ForeignKey(Ticket, on_delete=models.CASCADE, related_name='ticket_behalf_ticket')
-#     behalf_email = models.CharField(max_length=100)
-#     created_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE,
-#                                    related_name="ticket_behalf_created_by")
-#     updated_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE,
-#                                    related_name="ticket_behalf_updated_by")
-#     created_at = models.DateTimeField(auto_now_add=True)
-#     updated_at = models.DateTimeField(null=True, blank=True)
-#     deleted_at = models.DateTimeField(null=True, blank=True)
-#
-#     objects = models.Manager()
-#
-#     class Meta:
-#         db_table = 'ticket_behalf'
-
-
-# class TicketFollower(models.Model):
-#     ticket_id = models.ForeignKey(Ticket, on_delete=models.CASCADE, related_name='ticket_follower_ticket')
-#     follower_id = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE,
-#                                     related_name="ticket_follower_follower_id")
-#     created_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE,
-#                                    related_name="ticket_follower_created_by")
-#     updated_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE,
-#                                    related_name="ticket_follower_updated_by")
-#     created_at = models.DateTimeField(auto_now_add=True)
-#     updated_at = models.DateTimeField(null=True, blank=True)
-#     deleted_at = models.DateTimeField(null=True, blank=True)
-#
-#     objects = models.Manager()
-#
-#     class Meta:
-#         db_table = 'ticket_follower'
-
-
-#
-# class UserDepartment(models.Model):
-#     """
-#     User Department Model
-#     """
-#     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="user_department_user")
-#     department = models.ForeignKey(Department, on_delete=models.CASCADE, related_name="user_department_department")
-#     created_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE,
-#                                    related_name="user_department_created_by")
-#     updated_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE,
-#                                    related_name="user_department_updated_by")
-#     created_on = models.DateTimeField(auto_now_add=True)
-#     updated_on = models.DateTimeField(null=True, blank=True)
-#     is_delete = models.BooleanField(default=False)
-#
-#     objects = models.Manager()
-#
-#     class Meta:
-#         ordering = ['-created_on']
-#         unique_together = ('department', 'user',)
-#         db_table = "user_department"
-#
-#
 
 

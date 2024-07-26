@@ -38,7 +38,6 @@ urlpatterns = [
     path('v1/<int:pk>/', views.TicketUpdateAPI.as_view(), name='ticket_detail'),
 
     # add Ticket Behalf
-    # will add somethinng here.
 
     # TicketFollower URLs (tested api level)
     path('v1/follower/', views.TicketFollowerCreateAPI.as_view(), name='ticket_follower_create'),

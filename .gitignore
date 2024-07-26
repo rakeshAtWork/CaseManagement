@@ -1,0 +1,10 @@
+*.idea
+*pycache*
+temp/
+media/
+venv/
+venv2/
+.env
+htmlcov/
+.coverage
+user_management.zip/

@@ -28,8 +28,7 @@ class Role(models.Model):
         ordering = ['-created_on']
         db_table = "ROLE"
 
-    def __str__(self):
-        return self.role_name
+
 
 
 class UserRole(models.Model):
@@ -70,8 +69,7 @@ class MasterPrivilege(models.Model):
         ordering = ('privilege_name',)
         db_table = "PRIVILEGE"
 
-    def __str__(self):
-        return self.privilege_name
+
 
 
 class RolePermission(models.Model):

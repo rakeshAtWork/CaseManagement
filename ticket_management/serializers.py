@@ -1,5 +1,6 @@
 from rest_framework import serializers
-from .models import Department, SLA, Status, Category, ProjectManagement, TicketType, TicketRevision, TicketFollower, Ticket
+from .models import Department, SLA, Status, Category, ProjectManagement, TicketType, TicketRevision, TicketFollower, \
+    Ticket
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
@@ -211,8 +212,8 @@ class DepartmentFilterSerializer(serializers.ModelSerializer):
 class TicketTypeSerializer(serializers.ModelSerializer):
     class Meta:
         model = TicketType
-        fields = ('id', 'name', 'is_active')
-        read_only_fields = ('created_by', 'created_at', 'updated_by', 'updated_at', 'deleted_at')
+        fields = ('id', 'name', 'is_active', 'created_by')
+        read_only_fields = ('created_at', 'updated_by', 'updated_at', 'deleted_at')
 
 
 class TicketTypeUpdateSerializer(serializers.ModelSerializer):

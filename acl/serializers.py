@@ -66,30 +66,30 @@ class PermissionSerializer(serializers.ModelSerializer):
         fields = ("id", "privilege_name", "privilege_desc")
 
 
-class RoleUserSerializer(serializers.ModelSerializer):
-    role_name = serializers.SerializerMethodField(source='get_role_name', read_only=True)
-    role_id = serializers.IntegerField(required=True)
-    user_id = serializers.IntegerField(required=True)
-
-    class Meta:
-        model = UserRole
-        fields = ("id", "user_id", "role_id", "role_name")
-
-    def get_role_name(self, obj):
-        return obj.role.role_name
-
-    def create(self, validated_data):
-        role_id = validated_data.pop("role_id")
-        user_id = validated_data.pop("user_id")
-        role = Role.objects.filter(id=role_id).first()
-        user = User.objects.filter(id=user_id).first()
-        if not role and not user:
-            raise serializers.ValidationError("role id or user id is not valid")
-
-        validated_data["role"] = role
-        validated_data["user"] = user
-        instance = super(RoleUserSerializer, self).create(validated_data)
-        return instance
+# class RoleUserSerializer(serializers.ModelSerializer):
+#     role_name = serializers.SerializerMethodField(source='get_role_name', read_only=True)
+#     role_id = serializers.IntegerField(required=True)
+#     user_id = serializers.IntegerField(required=True)
+#
+#     class Meta:
+#         model = UserRole
+#         fields = ("id", "user_id", "role_id", "role_name")
+#
+#     def get_role_name(self, obj):
+#         return obj.role.role_name
+#
+#     def create(self, validated_data):
+#         role_id = validated_data.pop("role_id")
+#         user_id = validated_data.pop("user_id")
+#         role = Role.objects.filter(id=role_id).first()
+#         user = User.objects.filter(id=user_id).first()
+#         if not role and not user:
+#             raise serializers.ValidationError("role id or user id is not valid")
+#
+#         validated_data["role"] = role
+#         validated_data["user"] = user
+#         instance = super(RoleUserSerializer, self).create(validated_data)
+#         return instance
 
 
 # class RoleReadSerializer(serializers.ModelSerializer):
