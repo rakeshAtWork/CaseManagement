@@ -21,6 +21,7 @@ class FileType(models.Model):
 
     objects = models.Manager()
 
+
     class Meta:
         ordering = ['created_on']
         db_table = 'FILE_TYPE'

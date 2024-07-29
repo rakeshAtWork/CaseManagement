@@ -1,7 +1,42 @@
 from django.db import models
 from django.contrib.auth import get_user_model
 import uuid
+
 User = get_user_model()
+
+
+class TicketType(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, unique=True)
+    name = models.CharField(max_length=255, blank=False, null=False)
+    is_active = models.BooleanField(default=False)
+    created_by = models.IntegerField(null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_by = models.IntegerField(null=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    deleted_at = models.DateTimeField(blank=True, null=True)
+
+    objects = models.Manager()
+
+    class Meta:
+        db_table = 'ticket_type'
+
+
+class Priority(models.Model):
+    name = models.CharField(max_length=50, unique=True)
+    description = models.TextField(blank=True, null=True)
+    level = models.CharField(max_length=50, unique=True)  # Level of priority
+    created_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE,
+                                   related_name="priority_created_by")
+    updated_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE,
+                                   related_name="priority_updated_by")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(null=True, blank=True)
+    deleted_at = models.DateTimeField(null=True, blank=True)
+
+    objects = models.Manager()
+
+    class Meta:
+        db_table = 'priority'
 
 
 class Status(models.Model):
@@ -21,6 +56,7 @@ class Status(models.Model):
     deleted_at = models.DateTimeField(null=True, blank=True)
 
     objects = models.Manager()
+
     class Meta:
         ordering = ['-created_at']
         db_table = "status"
@@ -76,7 +112,8 @@ class Department(models.Model):
     """
     department_name = models.CharField(max_length=150)
     department_code = models.CharField(max_length=150)
-    department_type = models.CharField(max_length=150)
+    department_type = models.ForeignKey(Category, on_delete=models.CASCADE, related_name="categories", blank=True, null=True,)
+    # department_type = models.CharField(max_length=150)
 
     created_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE,
                                    related_name="department_created_by")
@@ -90,18 +127,41 @@ class Department(models.Model):
 
     objects = models.Manager()
 
-
     class Meta:
         ordering = ['-created_at']
         db_table = "departments"
 
 
+class UserDepartment(models.Model):
+    """
+    User Department Model
+    """
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="user_department_user")
+    department = models.ForeignKey(Department, on_delete=models.CASCADE, related_name="user_department_department")
+    created_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE,
+                                   related_name="user_department_created_by")
+    updated_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE,
+                                   related_name="user_department_updated_by")
+    created_on = models.DateTimeField(auto_now_add=True)
+    updated_on = models.DateTimeField(null=True, blank=True)
+    is_delete = models.BooleanField(default=False)
+
+    objects = models.Manager()
+
+    class Meta:
+        ordering = ['-created_on']
+        unique_together = ('department', 'user',)
+        db_table = "user_department"
+
+
 #
 class SLA(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, unique=True)
-    department = models.CharField(max_length=200)  # Add Foreign-key of the Department Table
-    ticket_type = models.CharField(max_length=200)  # Add Foreign-key of the Ticket Table
-    priority = models.CharField(max_length=50)
+    department = models.ForeignKey(Department, on_delete=models.CASCADE,
+                                   related_name='sla_department')
+    ticket_type = models.ForeignKey(TicketType, on_delete=models.CASCADE,
+                                    related_name='sla_ticket_type')
+    priority = models.ForeignKey(Priority, on_delete=models.CASCADE, related_name='sla_priority')
     response_time = models.DurationField()
     resolution_time = models.DurationField()
     is_delete = models.BooleanField(default=False)
@@ -116,22 +176,6 @@ class SLA(models.Model):
     class Meta:
         db_table = 'SLA'
         ordering = ['created_at']
-
-
-class TicketType(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, unique=True)
-    name = models.CharField(max_length=255, blank=False, null=False)
-    is_active = models.BooleanField(default=False)
-    created_by = models.IntegerField(null=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_by = models.IntegerField(null=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    deleted_at = models.DateTimeField(blank=True, null=True)
-
-    objects = models.Manager()
-
-    class Meta:
-        db_table = 'ticket_type'
 
 
 class Ticket(models.Model):
@@ -230,7 +274,18 @@ class TicketRevision(models.Model):
         db_table = 'ticket_revision'
 
 
+class TicketBehalf(models.Model):
+    ticket_id = models.ForeignKey(Ticket, on_delete=models.CASCADE, related_name='ticket_behalf_ticket')
+    behalf_email = models.CharField(max_length=100)
+    created_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE,
+                                   related_name="ticket_behalf_created_by")
+    updated_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE,
+                                   related_name="ticket_behalf_updated_by")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(null=True, blank=True)
+    deleted_at = models.DateTimeField(null=True, blank=True)
 
+    objects = models.Manager()
 
-
-
+    class Meta:
+        db_table = 'ticket_behalf'

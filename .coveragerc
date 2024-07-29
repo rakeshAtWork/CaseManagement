@@ -1,0 +1,16 @@
+[run]
+source = .
+omit =
+    */tests/*
+    manage.py
+    */__init__.py
+    */settings.py
+    */urls.py
+    */wsgi.py
+    */asgi.py
+    */migrations/*
+
+[report]
+fail_under = 85
+show_missing = true
+ignore_errors = True

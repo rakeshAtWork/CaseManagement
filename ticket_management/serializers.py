@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from .models import Department, SLA, Status, Category, ProjectManagement, TicketType, TicketRevision, TicketFollower, \
-    Ticket
+    Ticket, TicketBehalf, UserDepartment, Priority
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
@@ -23,6 +23,7 @@ class SLASerializer(serializers.ModelSerializer):
     class Meta:
         model = SLA
         fields = "__all__"
+        read_only_fields = ('created_by', 'is_delete', 'updated_by', 'created_at', 'updated_at', 'deleted_at')
 
     def create(self, validated_data):
         # Custom create method if needed
@@ -139,7 +140,16 @@ class CategoryFilterSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Category
-        fields = ('name', 'order_by', 'order_type', 'page', 'page_size')
+        fields = ('id', 'name', 'order_by', 'order_type', 'page', 'page_size')
+
+
+
+
+class UserDepartmentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserDepartment
+        fields = "__all__"
+        read_only_fields = ('created_by', 'updated_by', 'is_delete')
 
 
 class ProjectManagementSerializer(serializers.ModelSerializer):
@@ -207,6 +217,7 @@ class DepartmentFilterSerializer(serializers.ModelSerializer):
     class Meta:
         model = Department
         fields = ('id', 'is_active', 'name', 'order_by', 'order_type', 'page', 'page_size')
+        read_only_fields = ('department_type',)
 
 
 class TicketTypeSerializer(serializers.ModelSerializer):
@@ -220,6 +231,49 @@ class TicketTypeUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = TicketType
         fields = ('name', 'is_active')
+        read_only_fields = ('created_by', 'created_at', 'updated_by', 'updated_at', 'deleted_at')
+
+
+class TicketBehalfSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TicketBehalf
+        fields = (
+            'id', 'ticket_id', 'behalf_email', 'created_by', 'created_at', 'updated_by', 'updated_at', 'deleted_at')
+        read_only_fields = ('created_by', 'created_at', 'updated_by', 'updated_at', 'deleted_at')
+
+
+class TicketBehalfUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TicketBehalf
+        fields = ('behalf_email',)
+        read_only_fields = ('created_by', 'created_at', 'updated_by', 'updated_at', 'deleted_at')
+
+
+class TicketBehalfFilterSerializer(serializers.ModelSerializer):
+    ticket_id = serializers.IntegerField(required=False, allow_null=True)
+    behalf_email = serializers.CharField(max_length=100, required=False, allow_blank=True, allow_null=True)
+    created_at = serializers.DateTimeField(allow_null=True, required=False)
+    created_by = serializers.IntegerField(allow_null=True, required=False)
+    updated_at = serializers.DateTimeField(allow_null=True, required=False)
+    updated_by = serializers.IntegerField(allow_null=True, required=False)
+    order_by = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    order_type = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    page = serializers.IntegerField(required=False, allow_null=True)
+    per_page = serializers.IntegerField(required=False, allow_null=True)
+    export = serializers.BooleanField(required=False, allow_null=True, default=False)
+
+    class Meta:
+        model = TicketBehalf
+        fields = (
+            'ticket_id', 'behalf_email', 'created_at', 'created_by', 'updated_at', 'updated_by', 'order_by',
+            'order_type', 'page', 'per_page', 'export')
+
+
+class TicketFollowerSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TicketFollower
+        fields = (
+            'id', 'ticket_id', 'follower_id', 'created_by', 'created_at', 'updated_by', 'updated_at', 'deleted_at')
         read_only_fields = ('created_by', 'created_at', 'updated_by', 'updated_at', 'deleted_at')
 
 
@@ -348,3 +402,9 @@ class TicketFilterSerializer(serializers.ModelSerializer):
             'ticket_priority',
             'created_at', 'created_by', 'updated_at', 'updated_by', 'order_by', 'order_type', 'page', 'per_page',
             'export')
+
+
+class PrioritySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Priority
+        fields = '__all__'

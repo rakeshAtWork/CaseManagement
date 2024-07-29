@@ -1,19 +1,32 @@
+from django.utils.decorators import method_decorator
+from drf_yasg import openapi
+from rest_framework import generics
+from rest_framework.pagination import PageNumberPagination
+
+from .models import Department, SLA, Status, Category, ProjectManagement, TicketType, TicketFollower, TicketRevision, \
+    Ticket, TicketBehalf, UserDepartment
+from .permissions import permission_user_department_create, \
+    permission_user_department_view, permission_user_department_edit, permission_user_department_delete, \
+    permission_priority_edit, permission_priority_delete, permission_priority_create, permission_priority_view
 from rest_framework import generics
 from .models import Department, SLA, Status, Category, ProjectManagement, TicketType, TicketFollower, TicketRevision, \
-    Ticket
+    Ticket, Priority
 from .serializers import DepartmentSerializer, SLASerializer, StatusSerializer, StatusReadSerializer, \
     StatusFilterSerializer, CategorySerializer, \
     CategoryFilterSerializer, ProjectFilterSerializers, ProjectManagementReadSerializer, ProjectManagementSerializer, \
     SLAUpdateSerializer, DepartmentFilterSerializer, TicketTypeSerializer, TicketTypeUpdateSerializer, \
     TicketRevisionSerializer, TicketFollowerSerializer, TicketFollowerFilterSerializer, TicketFollowerUpdateSerializer, \
     TicketRevisionFilterSerializer, TicketRevisionUpdateSerializer, TicketSerializer, TicketUpdateSerializer, \
-    TicketFilterSerializer
+    TicketFilterSerializer, TicketFilterSerializer, TicketBehalfFilterSerializer, TicketBehalfSerializer, \
+    TicketBehalfUpdateSerializer, \
+    UserDepartmentSerializer, PrioritySerializer
 from acl.privilege import CozentusPermission
 from django.core.paginator import Paginator
 from django.utils import timezone
 from drf_yasg.utils import swagger_auto_schema
 from rest_framework import generics, status
 from rest_framework.generics import CreateAPIView, RetrieveUpdateDestroyAPIView
+from rest_framework.generics import CreateAPIView, RetrieveUpdateDestroyAPIView, ListCreateAPIView
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from . import serializers
@@ -22,6 +35,15 @@ from rest_framework import serializers
 
 class DepartmentListCreateView(generics.ListCreateAPIView):
     permission_classes = [CozentusPermission]
+
+
+class LargeResultsSetPagination(PageNumberPagination):
+    page_size = 1000
+    page_size_query_param = 'page_size'
+    max_page_size = 10000
+
+
+class DepartmentListCreateView(generics.ListCreateAPIView):
     queryset = Department.objects.filter(is_active=True, is_delete=False)
     serializer_class = DepartmentSerializer
 
@@ -200,7 +222,7 @@ class CategoryCreateApi(CreateAPIView):
     queryset = Category.objects.all()
 
     def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user.id)
+        serializer.save(created_by=self.request.user)
 
 
 class CategoryUpdateApi(RetrieveUpdateDestroyAPIView):
@@ -423,7 +445,7 @@ class DepartmentCreateApi(CreateAPIView):
     queryset = Department.objects.all()
 
     def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user.id)
+        serializer.save(created_by=self.request.user)
 
 
 class DepartmentUpdateApi(RetrieveUpdateDestroyAPIView):
@@ -448,6 +470,69 @@ class DepartmentUpdateApi(RetrieveUpdateDestroyAPIView):
 
 class TicketTypeCreateAPI(generics.ListCreateAPIView):
     permission_classes = [CozentusPermission]
+
+
+@method_decorator(
+    name="get",
+    decorator=swagger_auto_schema(
+        manual_parameters=[
+            openapi.Parameter(
+                "department_id",
+                openapi.IN_QUERY,
+                description="search according to department",
+                type=openapi.TYPE_STRING,
+            ),
+            openapi.Parameter(
+                "user_id",
+                openapi.IN_QUERY,
+                description="search according to user_id",
+                type=openapi.TYPE_STRING,
+            ),
+        ]
+    ),
+)
+class UserDepartmentApi(ListCreateAPIView):
+    cozentus_object_permissions = {
+        'GET': (permission_user_department_view,),
+        'POST': (permission_user_department_create,)
+    }
+    permission_classes = (CozentusPermission,)
+    serializer_class = UserDepartmentSerializer
+    pagination_class = PageNumberPagination
+    queryset = UserDepartment.objects.filter(is_delete=False)
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+    def get_queryset(self):
+        department_id = self.request.query_params.get('department_id', None)
+        user_id = self.request.query_params.get('user_id', None)
+        queryset = UserDepartment.objects.filter(is_delete=False)
+        if department_id:
+            queryset = queryset.filter(department=department_id)
+        if user_id:
+            queryset = queryset.filter(user=user_id)
+        return queryset
+
+
+class UserDepartmentModifyApi(RetrieveUpdateDestroyAPIView):
+    cozentus_object_permissions = {
+        'GET': (permission_user_department_view,),
+        'PUT': (permission_user_department_edit,),
+        'PATCH': (permission_user_department_edit,),
+        'DELETE': (permission_user_department_delete,)
+
+    }
+    permission_classes = (CozentusPermission,)
+    serializer_class = UserDepartmentSerializer
+    queryset = UserDepartment.objects.filter(is_delete=False)
+
+    def perform_update(self, serializer):
+        serializer.save(modified_by=self.request.user, modified_on=timezone.now().astimezone(timezone.utc))
+
+
+class TicketTypeCreateAPI(generics.ListCreateAPIView):
+    # permission_classes = [CozentusPermission]
 
     serializer_class = TicketTypeSerializer
     queryset = TicketType.objects.all()
@@ -670,3 +755,88 @@ class TicketUpdateAPI(RetrieveUpdateDestroyAPIView):
     permission_classes = [CozentusPermission]
     queryset = Ticket.objects.all()
     serializer_class = TicketUpdateSerializer
+
+
+class TicketBehalfCreateAPI(CreateAPIView):
+    queryset = TicketBehalf.objects.filter(deleted_at__isnull=True)
+    serializer_class = TicketBehalfSerializer
+
+
+class TicketBehalfFilterAPI(APIView):
+    serializer_class = TicketBehalfFilterSerializer
+
+    @swagger_auto_schema(request_body=TicketBehalfFilterSerializer)
+    def post(self, request):
+        """
+        Retrieve ticket behalf data with pagination and filter
+        """
+        try:
+            per_page = request.data.get("per_page", 50)
+            page = request.data.get("page", 1)
+            if page < 1 or per_page < 1:
+                return Response({"message": "page and page size should be positive integer"},
+                                status=status.HTTP_400_BAD_REQUEST)
+
+            order_by = request.data.get('order_by')
+            order_type = request.data.get('order_type')
+            serializer = TicketBehalfFilterSerializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            data = serializer.data
+            filter_dict = {
+                "ticket_id": "ticket_id", "behalf_email": "behalf_email",
+                "created_at": "created_at", "created_by": "created_by",
+                "updated_at": "updated_at", "updated_by": "updated_by"
+            }
+            query_dict = {filter_dict.get(key, None): value for key, value in data.items() if
+                          value or isinstance(value, (int, bool))}
+            query_dict = {key: value for key, value in query_dict.items() if key}
+            queryset = TicketBehalf.objects.filter(**query_dict)
+            order_dict = {
+                "ticket_id": "ticket_id", "behalf_email": "behalf_email",
+                "created_at": "created_at", "created_by": "created_by",
+                "updated_at": "updated_at", "updated_by": "updated_by"
+            }
+            query_filter = order_dict.get(order_by, None)
+            if query_filter:
+                if order_type == "desc":
+                    query_filter = f"-{query_filter}"
+                queryset = queryset.order_by(query_filter)
+            paginator = Paginator(queryset, per_page)
+            number_pages = paginator.num_pages
+            if page > number_pages:
+                return Response({"message": "Page not found"}, status=status.HTTP_400_BAD_REQUEST)
+            page_obj = paginator.get_page(page)
+            serializer = TicketBehalfSerializer(page_obj, many=True)
+            data = serializer.data
+            return Response({"count": queryset.count(), "results": data})
+
+        except ValueError as e:
+            return Response({"message": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as ee:
+            return Response({"message": str(ee)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class TicketBehalfUpdateAPI(RetrieveUpdateDestroyAPIView):
+    queryset = TicketBehalf.objects.all()
+    serializer_class = TicketBehalfUpdateSerializer
+
+
+class PriorityListCreateApi(ListCreateAPIView):
+    queryset = Priority.objects.all()
+    serializer_class = PrioritySerializer
+    case_management_object_permissions = {
+        'POST': (permission_priority_create,),
+        'GET': (permission_priority_view,)
+    }
+    permission_classes = (CozentusPermission,)
+
+
+class PriorityModifyApi(RetrieveUpdateDestroyAPIView):
+    queryset = Priority.objects.all()
+    serializer_class = PrioritySerializer
+    case_management_object_permissions = {
+        'PUT': (permission_priority_edit,),
+        'PATCH': (permission_priority_edit,),
+        'DELETE': (permission_priority_delete,)
+    }
+    permission_classes = (CozentusPermission,)
