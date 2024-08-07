@@ -20,9 +20,13 @@ urlpatterns = [
 
     path('v1/privilege/create', views.PopulatePermissionsView.as_view(), name="populate-privileges"),
     # this is to populate newly created privileges in to MasterPrivileges Models.(unit test case written)
-    path('api/roles/privileges', views.RoleDetailView.as_view(), name='role_list_privileges'),
+    path('v1/roles/privileges', views.RoleDetailView.as_view(), name='role_list_privileges'),
     # this is to list all roles with the associated privileges.(unit test case written)
-    path('api/roles/privileges/<str:pk>', views.RoleDetailView.as_view(), name='role_detail_privileges'),
+    path('v1/roles/privileges/<str:pk>', views.RoleDetailView.as_view(), name='role_detail_privileges'),
     # this is to list a specific role with the associated privileges.(unit test case written)
+
+    path('v1/configurations', views.AppConfigurationListCreateAPIView.as_view(), name='appconfiguration_list_create'),
+    path('v1/configurations/<int:pk>', views.AppConfigurationRetrieveUpdateDestroyAPIView.as_view(),
+         name='appconfiguration_detail'),
 
 ]

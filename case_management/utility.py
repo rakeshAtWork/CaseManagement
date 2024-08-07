@@ -5,9 +5,37 @@ from datetime import datetime, timedelta
 import jwt
 import base64
 from django.conf import settings
-
 from django.core.mail import EmailMultiAlternatives
 from django.conf import settings
+from enum import Enum
+
+
+class BaseEnum(Enum):
+    def __init__(self, code, description):
+        self.CODE = code
+        self.DESCRIPTION = description
+
+
+class StatusCodeEnum(BaseEnum):
+    VENDOR_CREATION_INITIATED = (5, "VENDOR CREATION INITIATED")
+    VENDOR_UPDATE_INITIATED = (10, "VENDOR UPDATE INITIATED")
+    VALIDATION_IN_PROGRESS = (15, "VALIDATION IN PROGRESS")
+    SANCTION_CHECK_REVIEW = (20, "SANCTION CHECK REVIEW")
+    SANCTION_CHECK_SUCCESS = (25, "SANCTION CHECK SUCCESS")
+    PENDING_SANCTION_CHECK = (30, "PENDING SANCTION CHECK")
+    VENDOR_REJECTED = (35, "VENDOR REJECTED")
+    VENDOR_CREATED_IN_D365 = (40, "VENDOR CREATED IN D365")
+    FINANCE_VP_APPROVAL = (45, "FINANCE VP APPROVAL")
+    PENDING_F_VP_APPROVAL = (50, "PENDING F-VP APPROVAL")
+    PROCUREMENT_VP_APPROVAL = (55, "PROCUREMENT VP APPROVAL")
+    PENDING_P_VP_APPROVAL = (60, "PENDING P-VP APPROVAL")
+    LBU_APPROVAL = (65, "LBU APPROVAL")
+    LBU_APPROVED = (70, "LBU APPROVED")
+    MDM_TEAM_APPROVAL = (75, "MDM TEAM APPROVAL")
+    PENDING_AT_MDM_TEAM = (80, "PENDING AT MDM TEAM")
+    PENDING_REQUESTER = (85, "PENDING REQUESTER")
+    MANUAL_UPDATE = (90, "MANUAL UPDATE")
+    PENDING_LOB_SYSTEM_UPDATE = (95, "PENDING LOB SYSTEM UPDATE")
 
 
 def decode_base64(base64_bytes):

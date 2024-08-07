@@ -3,7 +3,7 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
-    path('v1/login', views.UserLoginApi.as_view(), name='user-login'),  # login with password
+    path('v1/login', views.UserLoginApi.as_view(), name='user-login'),  # login with password - test case written
     path('v1/list', views.UserFilterApi.as_view(), name='user_list'),  # See the list of User
     path('v1/detail/<int:pk>', views.UserDetailApi.as_view(), name='user_details'),  # See the detail of particular user
     path('v1/short-info/<int:pk>', views.UserShortInfoApi.as_view(), name='user_short_details'),

@@ -1,25 +1,28 @@
+from django.core.exceptions import FieldError
 from django.utils.decorators import method_decorator
 from drf_yasg import openapi
 from rest_framework import generics
 from rest_framework.pagination import PageNumberPagination
 
-from .models import Department, SLA, Status, Category, ProjectManagement, TicketType, TicketFollower, TicketRevision, \
-    Ticket, TicketBehalf, UserDepartment
+from .models import Department, Status, Category, ProjectManagement, TicketType, TicketFollower, TicketRevision, \
+    Ticket, TicketBehalf, UserDepartment, SLA
 from .permissions import permission_user_department_create, \
     permission_user_department_view, permission_user_department_edit, permission_user_department_delete, \
-    permission_priority_edit, permission_priority_delete, permission_priority_create, permission_priority_view
+    permission_priority_edit, permission_priority_delete, permission_priority_create, permission_priority_view, \
+    permission_sla_edit, permission_sla_view, permission_sla_create, permission_ticket_type_create
 from rest_framework import generics
-from .models import Department, SLA, Status, Category, ProjectManagement, TicketType, TicketFollower, TicketRevision, \
+from .models import Department, Status, Category, ProjectManagement, TicketType, TicketFollower, TicketRevision, \
     Ticket, Priority
-from .serializers import DepartmentSerializer, SLASerializer, StatusSerializer, StatusReadSerializer, \
+from .serializers import DepartmentSerializer, StatusSerializer, StatusReadSerializer, \
     StatusFilterSerializer, CategorySerializer, \
     CategoryFilterSerializer, ProjectFilterSerializers, ProjectManagementReadSerializer, ProjectManagementSerializer, \
-    SLAUpdateSerializer, DepartmentFilterSerializer, TicketTypeSerializer, TicketTypeUpdateSerializer, \
+    DepartmentFilterSerializer, TicketTypeSerializer, TicketTypeUpdateSerializer, \
     TicketRevisionSerializer, TicketFollowerSerializer, TicketFollowerFilterSerializer, TicketFollowerUpdateSerializer, \
     TicketRevisionFilterSerializer, TicketRevisionUpdateSerializer, TicketSerializer, TicketUpdateSerializer, \
     TicketFilterSerializer, TicketFilterSerializer, TicketBehalfFilterSerializer, TicketBehalfSerializer, \
     TicketBehalfUpdateSerializer, \
-    UserDepartmentSerializer, PrioritySerializer
+    UserDepartmentSerializer, PrioritySerializer, DepartmentReadSerializer, \
+    TicketTypeReadSerializer, TicketTypeFilterSerializer, SLASerializer, SLAUpdateSerializer, SLAFilterSerializer
 from acl.privilege import CozentusPermission
 from django.core.paginator import Paginator
 from django.utils import timezone
@@ -31,10 +34,11 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from . import serializers
 from rest_framework import serializers
+from drf_spectacular.utils import extend_schema
 
 
-class DepartmentListCreateView(generics.ListCreateAPIView):
-    permission_classes = [CozentusPermission]
+# class DepartmentListCreateView(generics.ListCreateAPIView):
+#     permission_classes = [CozentusPermission]
 
 
 class LargeResultsSetPagination(PageNumberPagination):
@@ -54,23 +58,6 @@ class DepartmentRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView)
     serializer_class = DepartmentSerializer
 
 
-class SLACreate(generics.ListCreateAPIView):
-    permission_classes = [CozentusPermission]
-
-    serializer_class = SLASerializer
-    queryset = SLA.objects.filter(is_delete=False)
-
-    def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user.id)
-
-
-class SLARetrieveUpdateDelete(RetrieveUpdateDestroyAPIView):
-    permission_classes = [CozentusPermission]
-
-    serializer_class = SLAUpdateSerializer
-    queryset = SLA.objects.all()
-
-
 class StatusCreateApi(CreateAPIView):
     """
     This view class is used to Create a new Status
@@ -80,7 +67,7 @@ class StatusCreateApi(CreateAPIView):
     queryset = Status.objects.all()
 
     def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user.id)
+        serializer.save(created_by=self.request.user)
 
 
 class StatusUpdateApi(RetrieveUpdateDestroyAPIView):
@@ -92,7 +79,7 @@ class StatusUpdateApi(RetrieveUpdateDestroyAPIView):
     queryset = Status.objects.all()
 
     def perform_update(self, serializer):
-        serializer.save(updated_by=self.request.user.id)
+        serializer.save(updated_by=self.request.user)
 
     def delete(self, request, *args, **kwargs):
         instance = self.get_object()
@@ -110,7 +97,8 @@ class StatusFilterApi(APIView):
     permission_classes = (CozentusPermission,)
     serializer_class = StatusSerializer
 
-    @swagger_auto_schema(request_body=StatusReadSerializer)
+    # @swagger_auto_schema(request_body=StatusReadSerializer)
+    @extend_schema(request=StatusFilterSerializer, responses=StatusFilterSerializer)
     def post(self, request):
         """
         This method is used for retrieving status data with pagination and filter
@@ -256,7 +244,7 @@ class ProjectCreateApi(CreateAPIView):
     """
     Code list create and get api
     """
-
+    permission_classes = (CozentusPermission,)
     serializer_class = ProjectManagementSerializer
     queryset = ProjectManagement.objects.all()
 
@@ -269,7 +257,7 @@ class ProjectRetrieveUpdateDeleteApi(RetrieveUpdateDestroyAPIView):
     """
     Code list update and delete api
     """
-
+    permission_classes = (CozentusPermission,)
     serializer_class = ProjectManagementSerializer
     queryset = ProjectManagement.objects.all()
 
@@ -286,7 +274,8 @@ class ProjectFilterApi(APIView):
     serializer_class = ProjectManagementReadSerializer
     permission_classes = (CozentusPermission,)
 
-    @swagger_auto_schema(request_body=ProjectFilterSerializers)
+    # @swagger_auto_schema(request_body=ProjectFilterSerializers)
+    @extend_schema(request=ProjectFilterSerializers, responses=ProjectManagementReadSerializer)
     def post(self, request):
         """
         This method is used for retrieving role permission data with pagination and filter
@@ -356,7 +345,8 @@ class DepartmentFilterApi(APIView):
     """
     This view class is used to return department data with filter and pagination
     """
-    serializer_class = DepartmentFilterSerializer
+    permission_classes = (CozentusPermission,)
+    serializer_class = DepartmentReadSerializer
     cozentus_object_permissions = {
         # 'GET': (permission_department_view,),
         # 'PUT': (permission_department_update,),
@@ -364,10 +354,13 @@ class DepartmentFilterApi(APIView):
         # 'DELETE': (permission_department_delete,)
 
     }
-    permission_classes = (CozentusPermission,)
 
-    @swagger_auto_schema(request_body=DepartmentSerializer)
+    # permission_classes = (CozentusPermission,)
+
+    # @swagger_auto_schema(request_body=DepartmentFilterSerializer)
+    @extend_schema(request=DepartmentFilterSerializer, responses=DepartmentReadSerializer)
     def post(self, request):
+
         """
         This method is used to make post request for pagination and filter and return the department data.
         """
@@ -382,6 +375,7 @@ class DepartmentFilterApi(APIView):
                                 status=status.HTTP_400_BAD_REQUEST)
 
             serializer = DepartmentFilterSerializer(data=request.data)
+
             serializer.is_valid(raise_exception=True)
             data = serializer.validated_data
 
@@ -391,8 +385,11 @@ class DepartmentFilterApi(APIView):
                 "department_type": "department_type"
             }
 
-            query_filter = {filter_dict[key]: value for key, value in data.items() if value}
-
+            # query_filter = {filter_dict.get(key, None): value for key, value in data.items() if
+            #                 value or isinstance(value, int)}
+            # query_filter = {key: value for key, value in query_filter.items() if key}
+            query_filter = {filter_dict[key]: value for key, value in data.items() if
+                            key in filter_dict and value is not None}
             departments = Department.objects.filter(**query_filter)
 
             order_by_dict = {
@@ -422,17 +419,20 @@ class DepartmentFilterApi(APIView):
 
             # Get the page object for the requested page number
             page_obj = paginator.get_page(page)
-            results = DepartmentFilterSerializer(page_obj, many=True)
+            results = DepartmentReadSerializer(page_obj, many=True)
 
             return Response({'count': departments.count(), 'results': results.data}, status=status.HTTP_200_OK)
 
-        # except FieldError as fe:
-        #     return Response({"message": str(fe)}, status=status.HTTP_400_BAD_REQUEST)
+        except FieldError as fe:
+            print("Error 1")
+            return Response({"message": str(fe)}, status=status.HTTP_400_BAD_REQUEST)
 
         except serializers.ValidationError as ve:
+            print("Error 2")
             raise serializers.ValidationError(ve.detail)
 
         except Exception as ee:
+            print("Error 3")
             return Response(str(ee), status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -468,8 +468,8 @@ class DepartmentUpdateApi(RetrieveUpdateDestroyAPIView):
             return Response({"message": "Record not found."}, status=status.HTTP_404_NOT_FOUND)
 
 
-class TicketTypeCreateAPI(generics.ListCreateAPIView):
-    permission_classes = [CozentusPermission]
+# class TicketTypeCreateAPI(generics.ListCreateAPIView):
+#     permission_classes = [CozentusPermission]
 
 
 @method_decorator(
@@ -531,8 +531,8 @@ class UserDepartmentModifyApi(RetrieveUpdateDestroyAPIView):
         serializer.save(modified_by=self.request.user, modified_on=timezone.now().astimezone(timezone.utc))
 
 
-class TicketTypeCreateAPI(generics.ListCreateAPIView):
-    # permission_classes = [CozentusPermission]
+class TicketTypeCreateAPI(generics.CreateAPIView):
+    permission_classes = [CozentusPermission]
 
     serializer_class = TicketTypeSerializer
     queryset = TicketType.objects.all()
@@ -623,7 +623,7 @@ class TicketRevisionCreateAPI(CreateAPIView):
 
 class TicketRevisionFilterAPI(APIView):
     serializer_class = TicketRevisionFilterSerializer
-    permission_classes = [serializer_class]
+    permission_classes = [CozentusPermission]
 
     @swagger_auto_schema(request_body=TicketRevisionFilterSerializer)
     def post(self, request):
@@ -758,11 +758,13 @@ class TicketUpdateAPI(RetrieveUpdateDestroyAPIView):
 
 
 class TicketBehalfCreateAPI(CreateAPIView):
+    permission_classes = [CozentusPermission]
     queryset = TicketBehalf.objects.filter(deleted_at__isnull=True)
     serializer_class = TicketBehalfSerializer
 
 
 class TicketBehalfFilterAPI(APIView):
+    permission_classes = [CozentusPermission]
     serializer_class = TicketBehalfFilterSerializer
 
     @swagger_auto_schema(request_body=TicketBehalfFilterSerializer)
@@ -817,6 +819,7 @@ class TicketBehalfFilterAPI(APIView):
 
 
 class TicketBehalfUpdateAPI(RetrieveUpdateDestroyAPIView):
+    permission_classes = [CozentusPermission]
     queryset = TicketBehalf.objects.all()
     serializer_class = TicketBehalfUpdateSerializer
 
@@ -824,10 +827,10 @@ class TicketBehalfUpdateAPI(RetrieveUpdateDestroyAPIView):
 class PriorityListCreateApi(ListCreateAPIView):
     queryset = Priority.objects.all()
     serializer_class = PrioritySerializer
-    case_management_object_permissions = {
-        'POST': (permission_priority_create,),
-        'GET': (permission_priority_view,)
-    }
+    # case_management_object_permissions = {
+    #     'POST': (permission_priority_create,),
+    #     'GET': (permission_priority_view,)
+    # }
     permission_classes = (CozentusPermission,)
 
 
@@ -840,3 +843,162 @@ class PriorityModifyApi(RetrieveUpdateDestroyAPIView):
         'DELETE': (permission_priority_delete,)
     }
     permission_classes = (CozentusPermission,)
+
+
+class TicketTypeFilterApi(APIView):
+    permission_classes = (CozentusPermission,)
+    case_management_object_permissions = {
+        'POST': (permission_ticket_type_create,),  # Replace with actual permissions
+    }
+
+    # @swagger_auto_schema(request_body=TicketTypeFilterSerializer)
+    @extend_schema(request=TicketTypeFilterSerializer, responses=TicketTypeReadSerializer)
+    def post(self, request):
+        """
+        This method is used to make a POST request for pagination, filtering, and returning TicketType data.
+        """
+        try:
+            order_by = request.data.pop('order_by', None)
+            order_type = request.data.pop('order_type', None)
+            page_size = request.data.get("page_size", 50)
+            page = request.data.get("page", 1)
+
+            if page < 1 or page_size < 1:
+                return Response({"message": "Page and page size should be positive integers"},
+                                status=status.HTTP_400_BAD_REQUEST)
+
+            serializer = TicketTypeFilterSerializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            data = serializer.validated_data
+
+            filter_dict = {
+                "name": "name__icontains",
+                "is_active": "is_active",
+            }
+
+            # query_filter = {filter_dict.get(key): value for key, value in data.items() if value is not None}
+            query_filter = {filter_dict[key]: value for key, value in data.items() if
+                            key in filter_dict and value is not None}
+            ticket_types = TicketType.objects.filter(**query_filter)
+
+            order_by_dict = {
+                "name": "name",
+                "is_active": "is_active",
+            }
+
+            query_order_by = order_by_dict.get(order_by)
+
+            if order_type == "desc" and query_order_by:
+                query_order_by = f"-{query_order_by}"
+
+            if query_order_by:
+                ticket_types = ticket_types.order_by(query_order_by)
+
+            # Create Paginator object with page_size objects per page
+            paginator = Paginator(ticket_types, page_size)
+            number_pages = paginator.num_pages
+
+            if page > number_pages and page > 1:
+                return Response({"message": "Page not found"}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Get the page object for the requested page number
+            page_obj = paginator.get_page(page)
+            results = TicketTypeReadSerializer(page_obj, many=True)
+
+            return Response({'count': ticket_types.count(), 'results': results.data}, status=status.HTTP_200_OK)
+
+        except FieldError as fe:
+            return Response({"message": str(fe)}, status=status.HTTP_400_BAD_REQUEST)
+
+        except serializers.ValidationError as ve:
+            return Response({"message": str(ve)}, status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception as ee:
+            return Response({"message": str(ee)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class SLACreate(generics.CreateAPIView):
+    case_management_object_permissions = {
+        'POST': (permission_sla_create,),
+    }
+    permission_classes = (CozentusPermission,)
+
+    serializer_class = SLASerializer
+    queryset = SLA.objects.filter(is_delete=False)
+
+
+class SLARetrieveUpdateDelete(RetrieveUpdateDestroyAPIView):
+    case_management_object_permissions = {
+        'PUT': (permission_sla_edit,),
+        'PATCH': (permission_sla_edit,),
+        'POST': (permission_sla_view,),
+    }
+    permission_classes = (CozentusPermission,)
+
+    serializer_class = SLAUpdateSerializer
+    queryset = SLA.objects.all()
+
+
+class SLAFilterApi(APIView):
+    serializer_class = SLASerializer
+    permission_classes = (CozentusPermission,)
+    case_management_object_permissions = {
+        'POST': (permission_sla_view,),  # Replace with actual permissions
+    }
+
+    @extend_schema(request=SLAFilterSerializer, responses=SLASerializer)
+    def post(self, request):
+        try:
+            order_by = request.data.pop('order_by', None)
+            order_type = request.data.pop('order_type', None)
+            page_size = request.data.get("page_size", 50)
+            page = request.data.get("page", 1)
+
+            if page < 1 or page_size < 1:
+                return Response({"message": "page and page size should be positive integers"},
+                                status=status.HTTP_400_BAD_REQUEST)
+
+            serializer = SLAFilterSerializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            data = serializer.validated_data
+
+            filter_dict = {
+                "department": "department_id",
+                "ticket_type": "ticket_type_id",
+                "priority": "priority_id",
+                "is_delete": "is_delete",
+            }
+
+            query_filter = {filter_dict[key]: value for key, value in data.items() if
+                            key in filter_dict and value is not None}
+            slas = SLA.objects.filter(**query_filter)
+
+            order_by_dict = {
+                "department": "department__name",
+                "ticket_type": "ticket_type__name",
+                "priority": "priority__name",
+                "response_time": "response_time",
+                "resolution_time": "resolution_time",
+            }
+
+            query_order_by = order_by_dict.get(order_by)
+            if order_type == "desc" and query_order_by:
+                query_order_by = f"-{query_order_by}"
+            if query_order_by:
+                slas = slas.order_by(query_order_by)
+
+            paginator = Paginator(slas, page_size)
+            number_pages = paginator.num_pages
+
+            if page > number_pages and page > 1:
+                return Response({"message": "Page not found"}, status=status.HTTP_400_BAD_REQUEST)
+
+            page_obj = paginator.get_page(page)
+            results = SLASerializer(page_obj, many=True)
+
+            return Response({'count': slas.count(), 'results': results.data}, status=status.HTTP_200_OK)
+
+        except serializers.ValidationError as ve:
+            raise serializers.ValidationError(ve.detail)
+        except Exception as ee:
+            return Response(str(ee), status=status.HTTP_400_BAD_REQUEST)

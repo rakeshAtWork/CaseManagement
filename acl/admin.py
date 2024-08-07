@@ -10,3 +10,4 @@ admin.site.register(MasterPrivilege)
 admin.site.register(RolePermission)
 admin.site.register(ClientPrivilege)
 admin.site.register(AppConfiguration)
+

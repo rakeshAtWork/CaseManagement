@@ -1,15 +1,9 @@
 from rest_framework import serializers
-from .models import Department, SLA, Status, Category, ProjectManagement, TicketType, TicketRevision, TicketFollower, \
-    Ticket, TicketBehalf, UserDepartment, Priority
+from .models import Department, Status, Category, ProjectManagement, TicketType, TicketRevision, TicketFollower, \
+    Ticket, TicketBehalf, UserDepartment, Priority, SLA
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
-
-
-class SLAUpdateSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = SLA
-        fields = '__all__'
 
 
 class DepartmentSerializer(serializers.ModelSerializer):
@@ -19,19 +13,30 @@ class DepartmentSerializer(serializers.ModelSerializer):
         read_only_fields = ('created_by', 'updated_by', 'is_delete')
 
 
-class SLASerializer(serializers.ModelSerializer):
+class DepartmentReadSerializer(serializers.ModelSerializer):
+    # id = serializers.SerializerMethodField(source='id')
     class Meta:
-        model = SLA
-        fields = "__all__"
-        read_only_fields = ('created_by', 'is_delete', 'updated_by', 'created_at', 'updated_at', 'deleted_at')
+        model = Department
+        fields = ('id', 'department_name', 'department_type')
+        read_only_fields = ('created_by', 'updated_by', 'created_at', 'updated_at', 'is_active', 'is_delete')
 
-    def create(self, validated_data):
-        # Custom create method if needed
-        return super().create(validated_data)
 
-    def update(self, instance, validated_data):
-        # Custom update method if needed
-        return super().update(instance, validated_data)
+class DepartmentFilterSerializer(serializers.ModelSerializer):
+    """
+    This serializer is used for department filter
+    """
+    name = serializers.CharField(source='department_name', required=False, allow_blank=True, allow_null=True)
+    order_by = serializers.CharField(required=False, allow_blank=True, allow_null=True, write_only=True)
+    order_type = serializers.CharField(required=False, allow_blank=True, allow_null=True, write_only=True)
+    page = serializers.IntegerField(required=False, write_only=True, allow_null=True)
+    page_size = serializers.IntegerField(required=False, write_only=True, allow_null=True)
+
+    # export = serializers.BooleanField(required=False, allow_null=True, default=False)
+
+    class Meta:
+        model = Department
+        fields = ('name', 'order_by', 'order_type', 'page', 'page_size', 'department_type')
+        # read_only_fields = ('department_code','department_name')
 
 
 class StatusSerializer(serializers.ModelSerializer):
@@ -60,7 +65,6 @@ class StatusFilterSerializer(serializers.ModelSerializer):
     class Meta:
         model = Status
         fields = '__all__'
-        # ('name', 'status_code ', 'color_code', 'highlight','order_type','order_by','page','page_size')
 
 
 class StatusReadSerializer(serializers.ModelSerializer):
@@ -143,8 +147,6 @@ class CategoryFilterSerializer(serializers.ModelSerializer):
         fields = ('id', 'name', 'order_by', 'order_type', 'page', 'page_size')
 
 
-
-
 class UserDepartmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserDepartment
@@ -202,28 +204,10 @@ class ProjectFilterSerializers(serializers.Serializer):
             "created_at", "updated_at", "created_by", "updated_by", "deleted_at")
 
 
-class DepartmentFilterSerializer(serializers.ModelSerializer):
-    """
-    This serializer is used for department filter
-    """
-    name = serializers.CharField(source='department_name', required=False)
-    order_by = serializers.CharField(required=False, allow_blank=True, allow_null=True, write_only=True)
-    order_type = serializers.CharField(required=False, allow_blank=True, allow_null=True, write_only=True)
-    page = serializers.IntegerField(required=False, write_only=True, allow_null=True)
-    page_size = serializers.IntegerField(required=False, write_only=True, allow_null=True)
-
-    # export = serializers.BooleanField(required=False, allow_null=True, default=False)
-
-    class Meta:
-        model = Department
-        fields = ('id', 'is_active', 'name', 'order_by', 'order_type', 'page', 'page_size')
-        read_only_fields = ('department_type',)
-
-
 class TicketTypeSerializer(serializers.ModelSerializer):
     class Meta:
         model = TicketType
-        fields = ('id', 'name', 'is_active', 'created_by')
+        fields = ('id', 'name', 'is_active')
         read_only_fields = ('created_at', 'updated_by', 'updated_at', 'deleted_at')
 
 
@@ -408,3 +392,55 @@ class PrioritySerializer(serializers.ModelSerializer):
     class Meta:
         model = Priority
         fields = '__all__'
+
+
+class TicketTypeFilterSerializer(serializers.ModelSerializer):
+    name = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    is_active = serializers.BooleanField(required=False, allow_null=True)
+    order_by = serializers.CharField(required=False, allow_blank=True, allow_null=True, write_only=True)
+    order_type = serializers.CharField(required=False, allow_blank=True, allow_null=True, write_only=True)
+    page = serializers.IntegerField(required=False, write_only=True, allow_null=True)
+    page_size = serializers.IntegerField(required=False, write_only=True, allow_null=True)
+
+    class Meta:
+        model = TicketType
+        fields = ('name', 'is_active', 'order_by', 'order_type', 'page', 'page_size')
+
+
+class TicketTypeReadSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TicketType
+        fields = ('id', 'name', 'is_active')
+        read_only_fields = ('created_by', 'updated_by', 'created_at', 'updated_at')
+
+
+class SLASerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SLA
+        fields = "__all__"
+        read_only_fields = ('created_by', 'updated_by', 'created_at', 'updated_at', "is_delete", "deleted_at")
+
+    def create(self, validated_data):
+        # Custom create method if needed
+        return super().create(validated_data)
+
+
+class SLAUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SLA
+        fields = '__all__'
+
+
+class SLAFilterSerializer(serializers.ModelSerializer):
+    department = serializers.IntegerField(required=False, allow_null=True)
+    ticket_type = serializers.IntegerField(required=False, allow_null=True)
+    priority = serializers.IntegerField(required=False, allow_null=True)
+    is_delete = serializers.BooleanField(required=False, allow_null=True)
+    page = serializers.IntegerField(required=False, write_only=True, allow_null=True)
+    page_size = serializers.IntegerField(required=False, write_only=True, allow_null=True)
+    order_by = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    order_type = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+
+    class Meta:
+        model = SLA
+        fields = ('department', 'ticket_type', 'priority', 'is_delete', 'page', 'page_size', 'order_by', 'order_type')

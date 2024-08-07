@@ -4,7 +4,7 @@ from django.utils import timezone
 from django.db import transaction
 
 from master_data_management.models import Client
-from .models import (Role, RolePermission, UserRole, MasterPrivilege, ClientPrivilege, )
+from .models import (Role, RolePermission, UserRole, MasterPrivilege, ClientPrivilege, AppConfiguration, )
 
 User = get_user_model()
 
@@ -279,3 +279,22 @@ class ClientPrivilegeFilterSerializer(serializers.ModelSerializer):
         model = ClientPrivilege
         fields = (
             'privilege', 'client', 'order_by', "export", 'order_type', 'page', 'page_size')
+
+
+class AppConfigurationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AppConfiguration
+        fields = '__all__'
+        read_only_fields = ('created_by', 'created_on', 'modified_by', 'modified_on')
+
+    def validate_application_name(self, value):
+        # Check if an instance with the same application_name already exists
+        if AppConfiguration.objects.filter(application_name=value).exists():
+            raise serializers.ValidationError("Application name must be unique.")
+        return value
+
+    def create(self, validated_data):
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        return super().update(instance, validated_data)

@@ -1,10 +1,15 @@
+from django.core.exceptions import FieldError
 from django.core.paginator import Paginator
+from drf_spectacular.utils import extend_schema
+from rest_framework import generics, serializers
 from drf_yasg.utils import swagger_auto_schema
 from rest_framework.generics import RetrieveUpdateDestroyAPIView, CreateAPIView
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from acl.privilege import CozentusPermission
 from acl.export_excel import export_query_to_excel
-from master_data_management.models import FileType, Client, BusinessUnit, Vendor, Application, Customer
+from master_data_management.models import FileType, Client, BusinessUnit, Vendor, Application, Customer, AccountType, \
+    SupplierContactDetails, D365FOSetup, CompanyInfoForValidation, CPPSanctionAssessment, VendorDetails
 from master_data_management.permissions import permission_file_type_create, permission_file_type_view, \
     permission_file_type_edit, permission_file_type_delete, permission_file_type_list, permission_client_create, \
     permission_client_view, permission_client_edit, permission_client_delete, permission_client_list, \
@@ -21,7 +26,14 @@ from master_data_management.serializers import (FileTypeSerializers, FileTypeRea
                                                 VendorSerializers, VendorReadSerializers,
                                                 VendorFilterSerializers, ApplicationSerializers,
                                                 ApplicationReadSerializers, ApplicationFilterSerializers,
-                                                CustomerSerializers, CustomerReadSerializers, CustomerFilterSerializers)
+                                                CustomerSerializers, CustomerReadSerializers, CustomerFilterSerializers,
+                                                AccountTypeSerializer, SupplierContactDetailsSerializer,
+                                                D365FOSetupSerializer, CompanyInfoForValidationSerializer,
+                                                CPPSanctionAssessmentSerializer, VendorDetailsSerializer,
+                                                UpdateVendorDetailsSerializer, VendorDetailsFilterSerializer,
+                                                D365FOSetupReadSerializer, D365FOSetupFilterSerializer,
+                                                SupplierContactDetailsReadSerializer,
+                                                SupplierContactDetailsFilterSerializer)
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.response import Response
@@ -638,3 +650,334 @@ class ApplicationFilterApi(APIView):
             return Response({"message": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as ee:
             return Response(str(ee), status=status.HTTP_400_BAD_REQUEST)
+
+
+class VendorDetailsCreateView(CreateAPIView):
+    queryset = VendorDetails.objects.all()
+    serializer_class = VendorDetailsSerializer
+
+
+class VendorDetailsRetrieveUpdateDestroyView(RetrieveUpdateDestroyAPIView):
+    queryset = VendorDetails.objects.all()
+    serializer_class = UpdateVendorDetailsSerializer
+
+
+class VendorDetailsFilterApi(APIView):
+    """
+    VendorDetails filter api
+    """
+    permission_classes = [IsAuthenticated]
+    serializer_class = VendorDetailsFilterSerializer
+
+    @swagger_auto_schema(request_body=VendorDetailsFilterSerializer)
+    def post(self, request):
+        """
+        Retrieve VendorDetails data with pagination and filter
+        """
+        try:
+            order_by = request.data.get('order_by', 'created_on')
+            order_type = request.data.get('order_type', 'asc')
+            serializer = VendorDetailsFilterSerializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            data = serializer.validated_data
+            filter_dict = {
+                "company_code": "company_code__icontains",
+                "company_name": "company_name__icontains",
+                "agent_number": "agent_number__icontains",
+                "supplier_type": "supplier_type__icontains",
+                "currency": "currency__icontains",
+                "terms_of_payment": "terms_of_payment__icontains",
+                "supplier_name": "supplier_name__icontains",
+                "siret_number": "siret_number__icontains",
+                "vat_country_code": "vat_country_code__icontains",
+                "orbis_id": "orbis_id__icontains",
+                "orbis_id_found": "orbis_id_found",
+                "address_line": "address_line__icontains",
+                "country": "country__icontains",
+                "postal_code": "postal_code__icontains",
+                "town": "town__icontains",
+                "country_code": "country_code__icontains",
+                "swift_number": "swift_number__icontains",
+                "is_prime_revenue": "is_prime_revenue",
+                "created_by": "created_by",
+                "updated_by": "updated_by",
+                "created_on": "created_on",
+                "updated_on": "updated_on"
+            }
+            query_dict = {filter_dict.get(key, None): value for key, value in data.items() if
+                          value or isinstance(value, (int, bool))}
+            queryset = VendorDetails.objects.filter(**query_dict).order_by('-created_on')
+            if order_type == "desc":
+                order_by = f"-{order_by}"
+            queryset = queryset.order_by(order_by)
+            serializer = VendorDetailsSerializer(queryset, many=True)
+            return Response({"count": queryset.count(), "results": serializer.data})
+        except ValueError as e:
+            return Response({"message": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({"message": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+# AccountType Views
+class AccountTypeListApi(generics.ListAPIView):
+    queryset = AccountType.objects.filter(is_delete=False)
+    serializer_class = AccountTypeSerializer
+    permission_classes = [IsAuthenticated]
+
+
+class AccountTypeModifyApi(RetrieveUpdateDestroyAPIView):
+    queryset = AccountType.objects.filter(is_delete=False)
+    serializer_class = AccountTypeSerializer
+    permission_classes = [IsAuthenticated]
+    lookup_field = 'id'  # Use the primary key
+
+    def perform_update(self, serializer):
+        serializer.save(updated_by=self.request.user.id)
+
+    def perform_destroy(self, instance):
+        instance.is_delete = True
+        instance.save()
+
+
+# SupplierContactDetails Views
+class SupplierContactDetailsListApi(generics.ListAPIView):
+    queryset = SupplierContactDetails.objects.filter(is_delete=False)
+    serializer_class = SupplierContactDetailsSerializer
+    permission_classes = [CozentusPermission]
+
+
+class SupplierContactDetailsModifyApi(RetrieveUpdateDestroyAPIView):
+    queryset = SupplierContactDetails.objects.filter(is_delete=False)
+    serializer_class = SupplierContactDetailsSerializer
+    permission_classes = [CozentusPermission]
+
+    def perform_update(self, serializer):
+        serializer.save(updated_by=self.request.user.id)
+
+    def perform_destroy(self, instance):
+        instance.is_delete = True
+        instance.save()
+
+
+# D365FOSetup Views
+class D365FOSetupListApi(generics.ListAPIView):
+    queryset = D365FOSetup.objects.filter(is_delete=False)
+    serializer_class = D365FOSetupSerializer
+    permission_classes = [CozentusPermission]
+
+
+class D365FOSetupModifyApi(RetrieveUpdateDestroyAPIView):
+    queryset = D365FOSetup.objects.filter(is_delete=False)
+    serializer_class = D365FOSetupSerializer
+    permission_classes = [CozentusPermission]
+
+    def perform_update(self, serializer):
+        serializer.save(updated_by=self.request.user.id)
+
+    def perform_destroy(self, instance):
+        instance.is_delete = True
+        instance.save()
+
+
+# CompanyInfoForValidation Views
+class CompanyInfoForValidationListApi(generics.ListAPIView):
+    queryset = CompanyInfoForValidation.objects.filter(is_delete=False)
+    serializer_class = CompanyInfoForValidationSerializer
+    permission_classes = [IsAuthenticated]
+
+
+class CompanyInfoForValidationModifyApi(RetrieveUpdateDestroyAPIView):
+    queryset = CompanyInfoForValidation.objects.filter(is_delete=False)
+    serializer_class = CompanyInfoForValidationSerializer
+    permission_classes = [IsAuthenticated]
+    lookup_field = 'id'  # Use the primary key
+
+    def perform_update(self, serializer):
+        serializer.save(updated_by=self.request.user.id)
+
+    def perform_destroy(self, instance):
+        instance.is_delete = True
+        instance.save()
+
+
+# CPPSanctionAssessment Views
+class CPPSanctionAssessmentListApi(generics.ListAPIView):
+    queryset = CPPSanctionAssessment.objects.filter(is_delete=False)
+    serializer_class = CPPSanctionAssessmentSerializer
+    permission_classes = [IsAuthenticated]
+
+
+class CPPSanctionAssessmentModifyApi(RetrieveUpdateDestroyAPIView):
+    queryset = CPPSanctionAssessment.objects.filter(is_delete=False)
+    serializer_class = CPPSanctionAssessmentSerializer
+    permission_classes = [IsAuthenticated]
+    lookup_field = 'id'  # Use the primary key
+
+    def perform_update(self, serializer):
+        serializer.save(updated_by=self.request.user.id)
+
+    def perform_destroy(self, instance):
+        instance.is_delete = True
+        instance.save()
+
+
+class D365FOSetupFilterApi(APIView):
+    permission_classes = (CozentusPermission,)
+    case_management_object_permissions = {
+        # 'POST': (permission_d365fo_setup_create,),  # Replace with actual permissions
+    }
+
+    @extend_schema(request=D365FOSetupFilterSerializer, responses=D365FOSetupReadSerializer)
+    def post(self, request):
+        """
+        This method is used to make a POST request for pagination, filtering, and returning D365FOSetup data.
+        """
+        try:
+            order_by = request.data.pop('order_by', None)
+            order_type = request.data.pop('order_type', None)
+            page_size = request.data.get("page_size", 50)
+            page = request.data.get("page", 1)
+
+            if page < 1 or page_size < 1:
+                return Response({"message": "Page and page size should be positive integers"},
+                                status=status.HTTP_400_BAD_REQUEST)
+
+            serializer = D365FOSetupFilterSerializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            data = serializer.validated_data
+
+            filter_dict = {
+                "sales_tax_group": "sales_tax_group__icontains",
+                "vendor_group": "vendor_group__icontains",
+                "payment_method": "payment_method__icontains",
+                "business_unit": "business_unit__icontains",
+                "inter_company": "inter_company",
+                "vendor_hold": "vendor_hold",
+                "source_system": "source_system__icontains",
+                "source_system_supplier_reference": "source_system_supplier_reference__icontains",
+                "d365fo_id": "d365fo_id__icontains",
+                "fs_ticket_number": "fs_ticket_number__icontains",
+                "allow_false_duplicates": "allow_false_duplicates",
+            }
+
+            query_filter = {filter_dict[key]: value for key, value in data.items() if
+                            key in filter_dict and value is not None}
+            d365fo_setups = D365FOSetup.objects.filter(**query_filter)
+
+            order_by_dict = {
+                "sales_tax_group": "sales_tax_group",
+                "vendor_group": "vendor_group",
+                "payment_method": "payment_method",
+                "business_unit": "business_unit",
+                "source_system": "source_system",
+                "d365fo_id": "d365fo_id",
+                "fs_ticket_number": "fs_ticket_number",
+                "created_on": "created_on",
+                "updated_on": "updated_on",
+            }
+
+            query_order_by = order_by_dict.get(order_by)
+
+            if order_type == "desc" and query_order_by:
+                query_order_by = f"-{query_order_by}"
+
+            if query_order_by:
+                d365fo_setups = d365fo_setups.order_by(query_order_by)
+
+            paginator = Paginator(d365fo_setups, page_size)
+            number_pages = paginator.num_pages
+
+            if page > number_pages and page > 1:
+                return Response({"message": "Page not found"}, status=status.HTTP_400_BAD_REQUEST)
+
+            page_obj = paginator.get_page(page)
+            results = D365FOSetupReadSerializer(page_obj, many=True)
+
+            return Response({'count': d365fo_setups.count(), 'results': results.data}, status=status.HTTP_200_OK)
+
+        except FieldError as fe:
+            return Response({"message": str(fe)}, status=status.HTTP_400_BAD_REQUEST)
+
+        except serializers.ValidationError as ve:
+            return Response({"message": str(ve)}, status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception as ee:
+            return Response({"message": str(ee)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class SupplierContactDetailsFilterApi(APIView):
+    permission_classes = (CozentusPermission,)
+    case_management_object_permissions = {
+        # 'POST': (permission_supplier_contact_details_create,),  # Replace with actual permissions
+    }
+
+    @extend_schema(request=SupplierContactDetailsFilterSerializer, responses=SupplierContactDetailsReadSerializer)
+    def post(self, request):
+        """
+        This method is used to make a POST request for pagination, filtering, and returning SupplierContactDetails data.
+        """
+        try:
+            order_by = request.data.pop('order_by', None)
+            order_type = request.data.pop('order_type', None)
+            page_size = request.data.get("page_size", 50)
+            page = request.data.get("page", 1)
+
+            if page < 1 or page_size < 1:
+                return Response({"message": "Page and page size should be positive integers"},
+                                status=status.HTTP_400_BAD_REQUEST)
+
+            serializer = SupplierContactDetailsFilterSerializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            data = serializer.validated_data
+
+            filter_dict = {
+                "contact_person": "contact_person__icontains",
+                "main_phone_number": "main_phone_number__icontains",
+                "main_email_id": "main_email_id__icontains",
+                "finance_phone_number": "finance_phone_number__icontains",
+                "finance_email_id": "finance_email_id__icontains",
+                "remittance_email_id": "remittance_email_id__icontains",
+                "email_for_receiving_po": "email_for_receiving_po__icontains",
+                "email_id_for_quote": "email_id_for_quote__icontains",
+                "is_delete": "is_delete",
+            }
+
+            query_filter = {filter_dict[key]: value for key, value in data.items() if
+                            key in filter_dict and value is not None}
+            supplier_contacts = SupplierContactDetails.objects.filter(**query_filter)
+
+            order_by_dict = {
+                "contact_person": "contact_person",
+                "main_phone_number": "main_phone_number",
+                "main_email_id": "main_email_id",
+                "created_on": "created_on",
+                "updated_on": "updated_on",
+            }
+
+            query_order_by = order_by_dict.get(order_by)
+
+            if order_type == "desc" and query_order_by:
+                query_order_by = f"-{query_order_by}"
+
+            if query_order_by:
+                supplier_contacts = supplier_contacts.order_by(query_order_by)
+
+            paginator = Paginator(supplier_contacts, page_size)
+            number_pages = paginator.num_pages
+
+            if page > number_pages and page > 1:
+                return Response({"message": "Page not found"}, status=status.HTTP_400_BAD_REQUEST)
+
+            page_obj = paginator.get_page(page)
+            results = SupplierContactDetailsReadSerializer(page_obj, many=True)
+
+            return Response({'count': supplier_contacts.count(), 'results': results.data}, status=status.HTTP_200_OK)
+
+        except FieldError as fe:
+            return Response({"message": str(fe)}, status=status.HTTP_400_BAD_REQUEST)
+
+        except serializers.ValidationError as ve:
+            return Response({"message": str(ve)}, status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception as ee:
+            return Response({"message": str(ee)}, status=status.HTTP_400_BAD_REQUEST)

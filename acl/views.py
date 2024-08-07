@@ -14,13 +14,15 @@ from .permissions import permission_role_list, permission_role_create, permissio
 from .serializers import (RoleMultiUserCreateSerializer, RoleFilterSerializer, RoleReadSerializer,
                           RoleReadWithoutPrivilegeSerializer, RoleSerializer, RolePermissionFilterSerializer,
                           PermissionSerializer, ClientPrivilegeSerializer, ClientPrivilegeReadSerializer,
-                          ClientPrivilegeFilterSerializer, )
+                          ClientPrivilegeFilterSerializer, AppConfigurationSerializer, )
 from django.core.paginator import Paginator
-from .models import Role, UserRole, MasterPrivilege, RolePermission, ClientPrivilege
+from .models import Role, UserRole, MasterPrivilege, RolePermission, ClientPrivilege, AppConfiguration
 from .privilege import CozentusPermission
 from .classes import PermissionNamespace
 from .auth import create_permission
 import uuid
+from rest_framework import generics
+from drf_spectacular.utils import extend_schema
 
 User = get_user_model()
 
@@ -63,7 +65,6 @@ class RoleFilterApi(APIView):
             dict_ = {key: value for key, value in dict_.items() if key}
 
             if request.user.client_id:
-
                 dict_["client_id"] = request.user.client_id
             roles = Role.objects.filter(**dict_)
             order_by_dict = {
@@ -365,6 +366,7 @@ class PopulatePermissionsView(APIView):
 class RoleDetailView(APIView):
     permission_classes = [CozentusPermission]
 
+    @extend_schema(request=RoleReadSerializer, responses=RoleReadSerializer)
     def get(self, request, pk=None):
         if pk:
             try:
@@ -380,3 +382,29 @@ class RoleDetailView(APIView):
             roles = Role.objects.all()
             serializer = RoleReadSerializer(roles, many=True)
             return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class AppConfigurationListCreateAPIView(generics.ListCreateAPIView):
+    queryset = AppConfiguration.objects.all()
+    serializer_class = AppConfigurationSerializer
+    permission_classes = [CozentusPermission]
+
+    def perform_create(self, serializer):
+        # Set created_by and created_on automatically
+        serializer.save(
+            created_by=self.request.user.id,
+            created_on=timezone.now()
+        )
+
+
+class AppConfigurationRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = AppConfiguration.objects.all()
+    serializer_class = AppConfigurationSerializer
+    permission_classes = [CozentusPermission]
+
+    def perform_update(self, serializer):
+        # Set modified_by and modified_on automatically
+        serializer.save(
+            modified_by=self.request.user.id,
+            modified_on=timezone.now()
+        )

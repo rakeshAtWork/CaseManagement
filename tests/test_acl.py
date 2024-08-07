@@ -163,6 +163,59 @@ class RoleCreateAPITestCase(BaseTestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("please provide valid privilege", response.json()['error'])
 
+    def test_create_role_invalid_data_types(self):
+        """
+        Test role creation with invalid data types for the fields.
+        """
+        url = reverse('role_create')
+        invalid_data_types_payload = {
+            "role_name": 123,  # role_name should be a string
+            "role_description": 456,  # role_description should be a string
+            "client_id": 789,  # client_id should be a string
+            "privilege_names": [True, False]  # privilege_names should be a list of strings
+        }
+        response = self.client.post(url, invalid_data_types_payload, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_create_role_empty_role_name(self):
+        """
+        Test role creation with an empty role name.
+        """
+        url = reverse('role_create')
+        empty_role_name_payload = {
+            "role_name": "",
+            "role_description": "Role with empty name",
+            "client_id": 1,
+            "privilege_names": ["CREATE_APPLICATION", "VIEW_CLIENT_PERMISSION_LIST"]
+        }
+        response = self.client.post(url, empty_role_name_payload, format='json')
+        print(response.data)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("message", response.data)
+
+    def test_create_role_empty_payload(self):
+        url = reverse("role_create")
+        empty_payload = {}
+        response = self.client.post(url, empty_payload, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("message", response.json())
+        # self.assertIn("privilege_names", response.json())
+
+    def test_role_create_unauthorized(self):
+        """
+        Test role creation when the user is not authenticated.
+        """
+        self.client.logout()
+        url = reverse('role_create')
+        data = {
+            "role_name": "Test Role",
+            "role_description": "Test Role Description",
+            "client_id": "1",
+            "privilege_names": ["VIEW_USER"]
+        }
+        response = self.client.post(url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
 
 class RoleFilterApiTestCase(BaseTestCase):
     def test_role_list_success(self):

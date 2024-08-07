@@ -29,8 +29,6 @@ class Role(models.Model):
         db_table = "ROLE"
 
 
-
-
 class UserRole(models.Model):
     """
     Role Add to user
@@ -68,8 +66,6 @@ class MasterPrivilege(models.Model):
     class Meta:
         ordering = ('privilege_name',)
         db_table = "PRIVILEGE"
-
-
 
 
 class RolePermission(models.Model):
@@ -111,18 +107,20 @@ class ClientPrivilege(models.Model):
 
 
 class AppConfiguration(models.Model):
-    key = models.CharField(max_length=50)
-    value = models.TextField()
-    group = models.CharField(max_length=100, null=True, blank=True)
-    application = models.CharField(max_length=100, null=True, blank=True)
-    description = models.CharField(max_length=500, null=True, blank=True)
+    application_name = models.CharField(max_length=255, blank=True, null=True)
+    email_history_days = models.IntegerField(blank=True, null=True)
+    activity_history_days = models.IntegerField(blank=True, null=True)
+    client_start_no = models.CharField(max_length=100, blank=True, null=True)
+    project_start_no = models.CharField(max_length=100, blank=True, null=True)
+    ticket_start_no = models.CharField(max_length=100, blank=True, null=True)
+    ticket_auto_close_days = models.IntegerField(blank=True, null=True)
+    auto_notification_hours = models.IntegerField(blank=True, null=True)
     created_on = models.DateTimeField(auto_now_add=True)
-    created_by = models.CharField(max_length=100)
-    modified_on = models.DateTimeField(null=True, blank=True)
+    created_by = models.CharField(max_length=100, blank=True, null=True)
+    modified_on = models.DateTimeField(null=True, blank=True, )
     modified_by = models.CharField(max_length=100, null=True, blank=True)
 
     objects = models.Manager()
 
     class Meta:
-        ordering = ['key']
         db_table = 'APP_CONFIGURATION'

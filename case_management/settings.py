@@ -13,6 +13,9 @@ import datetime
 from pathlib import Path
 
 from decouple import config
+import sys
+
+ALLOWED_HOSTS = ["*"]
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -25,9 +28,6 @@ SECRET_KEY = 'django-insecure-w0+$!o$%h3vu3*z3j7)=fw(i2g7*!mimloq#zqi)d@$k-y^w8o
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
-
-
-ALLOWED_HOSTS = []
 
 # Application definition
 
@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     'user_management',
     'master_data_management',
     'ticket_management',
+    'drf_spectacular',
 ]
 
 MIDDLEWARE = [
@@ -82,21 +83,39 @@ WSGI_APPLICATION = 'case_management.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 
-DATABASES = {
-    # 'default': {
-    #     'ENGINE': config('DB_ENGINE'),
-    #     'NAME': config('DB_NAME'),
-    #     'USER': config('DB_USER'),
-    #     'PASSWORD': config('DB_PASSWORD'),
-    #     'HOST': config('DB_HOST'),
-    #     'PORT': config('DB_PORT'),
-    # },
+# DATABASE_ROUTERS = ['case_management.db_routers.DatabaseRouter']
 
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+if 'test' in sys.argv:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'testdb.sqlite3'
+        }
     }
-}
+else:
+    # DATABASES = {
+    #     'default': {
+    #         'ENGINE': config('DB_ENGINE'),
+    #         'NAME': config('DB_NAME'),
+    #         'USER': config('DB_USER'),
+    #         'PASSWORD': config('DB_PASSWORD'),
+    #         'HOST': config('DB_HOST'),
+    #         'PORT': config('DB_PORT'),
+    #         "OPTIONS": {
+    #             "driver": config('DB_DRIVER'),
+    #         },
+    #     },
+    #     'contenttypes_session_db': {
+    #         'ENGINE': 'django.db.backends.sqlite3',
+    #         'NAME': BASE_DIR / 'db.sqlite3',
+    #     },
+    # }
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3'
+        }
+    }
 
 # Password validation
 # https://docs.djangoproject.com/en/5.0/ref/settings/#auth-password-validators
@@ -154,6 +173,7 @@ REST_FRAMEWORK = {
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ],
     'EXCEPTION_HANDLER': 'case_management.custome_exception_handler.error_handler',
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 
 }
 
@@ -181,5 +201,15 @@ EMAIL_HOST_USER = config('EMAIL_HOST_USER')
 EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')
 
 AUTH_USER_MODEL = 'user_management.CustomUser'
-# settings.py
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '192.168.1.124']  # Replace with your actual IP address
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Case Management',
+    'DESCRIPTION': 'case management api documentation',
+    'VERSION': '1.0.0',
+    # 'DEFAULT_GENERATOR_CLASS': 'path.to.CustomSchemaGenerator',
+    # other settings
+    'SWAGGER_UI_SETTINGS': {
+        'docExpansion': 'none',  # This option collapses all sections by default
+    },
+    'SERVE_INCLUDE_SCHEMA': False,
+}

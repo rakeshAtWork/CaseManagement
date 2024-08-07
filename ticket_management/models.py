@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth import get_user_model
 import uuid
+from case_management.utility import StatusCodeEnum
 
 User = get_user_model()
 
@@ -44,7 +45,8 @@ class Status(models.Model):
     Status Model
     """
     name = models.CharField(max_length=150)
-    status_code = models.IntegerField(default=0)
+    status_code = models.IntegerField(choices=[(tag.value[0], tag.value[1]) for tag in StatusCodeEnum],
+                                      default=StatusCodeEnum.VENDOR_CREATION_INITIATED.value[0])
     color_code = models.CharField(max_length=150)
     highlight = models.IntegerField(default=0)
     created_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE,
@@ -112,7 +114,8 @@ class Department(models.Model):
     """
     department_name = models.CharField(max_length=150)
     department_code = models.CharField(max_length=150)
-    department_type = models.ForeignKey(Category, on_delete=models.CASCADE, related_name="categories", blank=True, null=True,)
+    department_type = models.ForeignKey(Category, on_delete=models.CASCADE, related_name="categories", blank=True,
+                                        null=True, )
     # department_type = models.CharField(max_length=150)
 
     created_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE,
@@ -154,7 +157,6 @@ class UserDepartment(models.Model):
         db_table = "user_department"
 
 
-#
 class SLA(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, unique=True)
     department = models.ForeignKey(Department, on_delete=models.CASCADE,

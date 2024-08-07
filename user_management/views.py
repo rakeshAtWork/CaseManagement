@@ -22,6 +22,7 @@ from .serializers import (UserSerializers, UserReadSerializer, UserShortInfoSeri
 from .models import CustomUser, TokenModule
 from datetime import datetime, timedelta
 from rest_framework_simplejwt.tokens import RefreshToken
+from drf_spectacular.utils import extend_schema
 
 
 class UserFilterApi(APIView):
@@ -312,7 +313,8 @@ class UserLoginApi(APIView):
     OtpVerify api view..
     """
 
-    @swagger_auto_schema(request_body=UserLoginSerializer)  # OtpVerifySerializer)
+    # @swagger_auto_schema(request_body=UserLoginSerializer)  # OtpVerifySerializer)
+    @extend_schema(request=UserLoginSerializer, responses=UserLoginSerializer)
     def post(self, request):
         # Assuming you have received the request data and need to validate it and generate tokens
         # print(request.data)
