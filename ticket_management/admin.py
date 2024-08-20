@@ -1,5 +1,6 @@
 from django.contrib import admin
-from .models import Department, Ticket, TicketType, Priority, Category, Status
+from .models import Department, Ticket, TicketType, Priority
+
 # Register your models here.
 
 admin.site.register(Department)
@@ -7,5 +8,3 @@ admin.site.register(Department)
 admin.site.register(Ticket)
 admin.site.register(TicketType)
 admin.site.register(Priority)
-admin.site.register(Category)
-admin.site.register(Status)

@@ -36,7 +36,7 @@ class UserFilterApi(APIView):
 
     permission_classes = (CozentusPermission,)
 
-    @swagger_auto_schema(request_body=UserSerializers)
+    @extend_schema(request=UserSerializers)
     def post(self, request):
         """
         This method takes body input and filter the data and return the data with pagination
@@ -47,53 +47,86 @@ class UserFilterApi(APIView):
             if page < 1 or page_size < 1:
                 return Response({"message": "page and page size should be positive integer"},
                                 status=status.HTTP_400_BAD_REQUEST)
+
+            # Retrieve filter and ordering parameters
             order_by = request.data.get('order_by', None)
             order_type = request.data.get('order_type', None)
             serializer = UserSerializers(data=request.data)
             serializer.is_valid(raise_exception=True)
             data = serializer.data
+
             user_status = data.get('status', None)
+            is_active = data.get('is_active', None)
+
+            # Define filter dictionary
             filter_dict = {
-                "email": "email__icontains", "first_name": "first_name__icontains",
-                "last_name": "last_name__icontains", "organization_name": "organization_name__icontains",
-                "phone_number": "phone_number__icontains", "status": "is_active",
+                "email": "email__icontains",
+                "first_name": "first_name__icontains",
+                "last_name": "last_name__icontains",
+                "organization_name": "organization_name__icontains",
+                "phone_number": "phone_number__icontains",
+                "status": "status",
                 "role": "role_user__role__role_name__icontains"
             }
+
+            # Generate query dictionary based on provided data
             query_dict = {filter_dict.get(key, None): value for key, value in data.items() if
                           value or isinstance(value, (int, float))}
             query_dict = {key: value for key, value in query_dict.items() if key}
             query_dict["is_delete"] = False
 
+            # Filter queryset by is_active status
+            if is_active is not None:
+                query_dict['is_active'] = is_active
+
             queryset = CustomUser.objects.filter(**query_dict).order_by("first_name")
+
+            # Apply user_status filter if provided
             if user_status == 0:
-                queryset = queryset.filter(is_active=0)
+                queryset = queryset.filter(is_active=False)
             elif user_status == 1:
-                queryset = queryset.filter(is_active=1)
+                queryset = queryset.filter(is_active=True)
+
+            # Define ordering dictionary
             order_by_dict = {
-                "is_active": "is_active", "email": "email", "first_name": "first_name",
-                "last_name": "last_name", "is_delete": "is_delete", "organization_name": "organization_name",
-                "phone_number": "phone_number", "created_on": "created_on", "last_login": "last_login",
-                "created_by": "created_by", "role": "role_user__role__role_name"
+                "is_active": "is_active",
+                "email": "email",
+                "first_name": "first_name",
+                "last_name": "last_name",
+                "is_delete": "is_delete",
+                "organization_name": "organization_name",
+                "phone_number": "phone_number",
+                "created_on": "created_on",
+                "last_login": "last_login",
+                "created_by": "created_by",
+                "role": "role_user__role__role_name"
             }
+
+            # Apply ordering based on provided parameters
             query_filter = order_by_dict.get(order_by, None)
             if order_type == "desc" and query_filter:
                 query_filter = f"-{query_filter}"
             if query_filter:
                 queryset = queryset.order_by(query_filter)
+
+            # Handle data export
             if data.get("export"):
                 serializer = self.serializer_class(queryset, many=True, context=self.request)
                 return export_query_to_excel(data=serializer.data, module_name="USER_MANAGEMENT")
-            # Create Paginator object with page_size objects per page
+
+            # Apply pagination
             paginator = Paginator(queryset, page_size)
             number_pages = paginator.num_pages
             if page > number_pages and page > 1:
                 return Response({"message": "Page not found"}, status=status.HTTP_400_BAD_REQUEST)
-            # Get the page object for the requested page number
+
+            # Serialize and return paginated results
             page_obj = paginator.get_page(page)
             serializer = self.serializer_class(page_obj, many=True, context=self.request)
             data = serializer.data
 
             return Response({"count": queryset.count(), "results": data}, status=status.HTTP_200_OK)
+
         except Exception as ee:
             return Response(str(ee), status=status.HTTP_400_BAD_REQUEST)
 
@@ -151,6 +184,23 @@ class RegisterApi(CreateAPIView):
         serializer.save(created_by=self.request.user.id)
 
 
+class UserUpdateApi(RetrieveUpdateDestroyAPIView):
+    """
+    Retrieve, update, or delete a user
+    """
+    permission_classes = (CozentusPermission,)
+    serializer_class = UserSerializer
+    queryset = CustomUser.objects.all()
+    lookup_field = 'id'
+
+    def perform_update(self, serializer):
+        serializer.save(updated_by=self.request.user.id, updated_on=timezone.now())
+
+    def perform_destroy(self, instance):
+        instance.is_delete = True
+        instance.save()
+
+
 class RegisterUserApi(CreateAPIView):
     """
     New user register by admin api view
@@ -161,29 +211,6 @@ class RegisterUserApi(CreateAPIView):
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user.id)
-
-
-class UserModifyApi(RetrieveUpdateDestroyAPIView):
-    """
-    User Modify api of specific user from super admin user by providing user id
-    """
-    case_management_object_permissions = {
-        'GET': (permission_profile_details,),
-        'PUT': (permission_user_detail_edit,),
-        'PATCH': (permission_user_detail_edit,),
-        'DELETE': (permission_user_detail_delete,)
-    }
-    permission_classes = (CozentusPermission,)
-    serializer_class = UserEditSerializer
-    queryset = CustomUser.objects.filter(is_delete=False)
-
-    def perform_update(self, serializer):
-        serializer.save(updated_by=self.request.user.id)
-
-    def perform_destroy(self, instance):
-        instance.is_active = False
-        instance.is_delete = True
-        instance.save()
 
 
 class UserActionApi(RetrieveUpdateDestroyAPIView):
@@ -287,7 +314,7 @@ class UserStatusApiView(UpdateAPIView):
     queryset = CustomUser.objects.filter(is_delete=False)
 
     def perform_update(self, serializer):
-        serializer.save(modified_by=self.request.user.id)
+        serializer.save(updated_by=self.request.user.id)
 
 
 class UserPasswordResetApi(CreateAPIView):
@@ -383,8 +410,8 @@ class ResetTokenView(APIView):
                 start_time = datetime.utcnow()
                 token_instance.expiry_time = start_time + timedelta(days=expiry_days)
 
-                token_instance.modified_on = timezone.now()
-                token_instance.modified_by = request.user.id
+                token_instance.updated_on = timezone.now()
+                token_instance.updated_by = request.user.id
 
             token_instance.save()
 

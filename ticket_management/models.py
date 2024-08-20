@@ -1,7 +1,8 @@
 from django.db import models
 from django.contrib.auth import get_user_model
 import uuid
-from case_management.utility import StatusCodeEnum
+
+from master_data_management.models import Department
 
 User = get_user_model()
 
@@ -40,49 +41,7 @@ class Priority(models.Model):
         db_table = 'priority'
 
 
-class Status(models.Model):
-    """
-    Status Model
-    """
-    name = models.CharField(max_length=150)
-    status_code = models.IntegerField(choices=[(tag.value[0], tag.value[1]) for tag in StatusCodeEnum],
-                                      default=StatusCodeEnum.VENDOR_CREATION_INITIATED.value[0])
-    color_code = models.CharField(max_length=150)
-    highlight = models.IntegerField(default=0)
-    created_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE,
-                                   related_name="status_created_by")
-    updated_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE,
-                                   related_name="status_updated_by")
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(null=True, blank=True)
-    deleted_at = models.DateTimeField(null=True, blank=True)
 
-    objects = models.Manager()
-
-    class Meta:
-        ordering = ['-created_at']
-        db_table = "status"
-
-
-class Category(models.Model):
-    """
-    Category Model
-    """
-    name = models.CharField(max_length=150)
-
-    created_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE,
-                                   related_name="category_created_by")
-    updated_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE,
-                                   related_name="category_updated_by")
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(null=True, blank=True)
-    deleted_at = models.DateTimeField(null=True, blank=True)
-
-    objects = models.Manager()
-
-    class Meta:
-        ordering = ['-created_at']
-        db_table = "category"
 
 
 class ProjectManagement(models.Model):
@@ -108,65 +67,17 @@ class ProjectManagement(models.Model):
         db_table = "project"
 
 
-class Department(models.Model):
-    """
-    Department Model
-    """
-    department_name = models.CharField(max_length=150)
-    department_code = models.CharField(max_length=150)
-    department_type = models.ForeignKey(Category, on_delete=models.CASCADE, related_name="categories", blank=True,
-                                        null=True, )
-    # department_type = models.CharField(max_length=150)
-
-    created_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE,
-                                   related_name="department_created_by")
-    updated_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE,
-                                   related_name="department_updated_by")
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(null=True, blank=True)
-    deleted_at = models.DateTimeField(null=True, blank=True)
-    is_active = models.BooleanField(default=True)
-    is_delete = models.BooleanField(default=False)
-
-    objects = models.Manager()
-
-    class Meta:
-        ordering = ['-created_at']
-        db_table = "departments"
-
-
-class UserDepartment(models.Model):
-    """
-    User Department Model
-    """
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="user_department_user")
-    department = models.ForeignKey(Department, on_delete=models.CASCADE, related_name="user_department_department")
-    created_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE,
-                                   related_name="user_department_created_by")
-    updated_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE,
-                                   related_name="user_department_updated_by")
-    created_on = models.DateTimeField(auto_now_add=True)
-    updated_on = models.DateTimeField(null=True, blank=True)
-    is_delete = models.BooleanField(default=False)
-
-    objects = models.Manager()
-
-    class Meta:
-        ordering = ['-created_on']
-        unique_together = ('department', 'user',)
-        db_table = "user_department"
-
-
 class SLA(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, unique=True)
     department = models.ForeignKey(Department, on_delete=models.CASCADE,
                                    related_name='sla_department')
-    ticket_type = models.ForeignKey(TicketType, on_delete=models.CASCADE,
-                                    related_name='sla_ticket_type')
-    priority = models.ForeignKey(Priority, on_delete=models.CASCADE, related_name='sla_priority')
+    # ticket_type = models.ForeignKey(TicketType, on_delete=models.CASCADE,
+    #                                 related_name='sla_ticket_type')
+    # priority = models.ForeignKey(Priority, on_delete=models.CASCADE, related_name='sla_priority')
     response_time = models.DurationField()
     resolution_time = models.DurationField()
     is_delete = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
     created_by = models.IntegerField(null=True)
     updated_by = models.IntegerField(null=True)
     created_at = models.DateTimeField(auto_now_add=True)

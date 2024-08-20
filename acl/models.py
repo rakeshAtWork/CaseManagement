@@ -17,10 +17,12 @@ class Role(models.Model):
     role_description = models.CharField(max_length=1000, db_column="role_desc", null=True, blank=True)
     client_id = models.CharField(max_length=1000, null=True, blank=True)
     created_on = models.DateTimeField(auto_now_add=True)
-    created_by = models.CharField(max_length=100)
-    modified_by = models.PositiveIntegerField(null=True)
-
-    modified_on = models.DateTimeField(null=True)
+    created_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE,
+                                   related_name="role_created_by")
+    updated_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE,
+                                   related_name="role_update_by")
+    is_active = models.BooleanField(default=True)
+    updated_on = models.DateTimeField(null=True)
 
     objects = models.Manager()
 
@@ -77,8 +79,12 @@ class RolePermission(models.Model):
                                   db_column='privilege_id')
     role = models.ForeignKey(Role, on_delete=models.CASCADE,
                              related_name="role_permission_role", db_column='role_id')
-    created_by = models.CharField(max_length=100)
+    created_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE,
+                                   related_name="role_privilege_created_by")
     created_on = models.DateTimeField(auto_now_add=True)
+    updated_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE,
+                                   related_name="role_privilege_updated_by")
+    updated_on = models.DateTimeField(null=True)
 
     objects = models.Manager()
 
@@ -96,8 +102,8 @@ class ClientPrivilege(models.Model):
     client = models.CharField(max_length=100)
     created_by = models.CharField(max_length=100)
     created_on = models.DateTimeField(auto_now_add=True)
-    modified_on = models.DateTimeField(null=True)
-    modified_by = models.PositiveIntegerField(null=True)
+    updated_on = models.DateTimeField(null=True)
+    updated_by = models.PositiveIntegerField(null=True)
 
     objects = models.Manager()
 
@@ -107,20 +113,55 @@ class ClientPrivilege(models.Model):
 
 
 class AppConfiguration(models.Model):
-    application_name = models.CharField(max_length=255, blank=True, null=True)
-    email_history_days = models.IntegerField(blank=True, null=True)
-    activity_history_days = models.IntegerField(blank=True, null=True)
-    client_start_no = models.CharField(max_length=100, blank=True, null=True)
-    project_start_no = models.CharField(max_length=100, blank=True, null=True)
-    ticket_start_no = models.CharField(max_length=100, blank=True, null=True)
-    ticket_auto_close_days = models.IntegerField(blank=True, null=True)
-    auto_notification_hours = models.IntegerField(blank=True, null=True)
+    application_name = models.CharField(max_length=255)
+    email_history_days = models.IntegerField()
+    activity_history_days = models.IntegerField()
+    client_start_no = models.CharField(max_length=100)
+    project_start_no = models.CharField(max_length=100)
+    ticket_start_no = models.CharField(max_length=100)
+    ticket_auto_close_days = models.IntegerField()
+    auto_notification_hours = models.IntegerField()
     created_on = models.DateTimeField(auto_now_add=True)
     created_by = models.CharField(max_length=100, blank=True, null=True)
-    modified_on = models.DateTimeField(null=True, blank=True, )
-    modified_by = models.CharField(max_length=100, null=True, blank=True)
+    updated_on = models.DateTimeField(null=True, blank=True, )
+    updated_by = models.CharField(max_length=100, null=True, blank=True)
 
     objects = models.Manager()
 
     class Meta:
         db_table = 'APP_CONFIGURATION'
+
+
+class MasterModule(models.Model):
+    MODULE_CHOICES = [
+        (10, 'file_type_management'),
+        (20, 'client_management'),
+        (30, 'vendor_management'),
+        (40, 'business_unit_management'),
+        (50, 'application_management'),
+        (60, 'account_type_management'),
+        (70, 'd365fo_setup_management'),
+        (80, 'supplier_management'),
+        (90, 'carrier_consolidation_management'),
+        (100, 'company_management'),
+        (110, 'cpp_sanction_assessment_management'),
+        (120, 'country_management'),
+        (130, 'user_management'),
+        (140, 'roles_management'),
+        (150, 'currency_management'),
+        (160, 'category_management'),
+        (170, 'country_management'),
+        (180, 'department_management'),
+        (190, 'user_department_management'),
+        (200, 'status_management'),
+        (220, 'ticket_management'),
+        (230, 'sla_management'),
+        (240, 'customer_management'),
+        (250, 'priority_management')
+    ]
+
+    module_id = models.PositiveIntegerField(choices=MODULE_CHOICES, primary_key=True)
+    name = models.CharField(max_length=255, unique=True)
+
+    def __str__(self):
+        return self.name

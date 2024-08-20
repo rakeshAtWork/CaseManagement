@@ -12,16 +12,16 @@ logger = logging.getLogger(name="CMS")
 MODULES = {"ROLE_MANAGEMENT": {"Role Name": {"value": "role_name"},
                                "Role Description": {"value": "role_description"},
                                "Created On(UTC)": {"value": "created_on"},
-                               "Created By": {"value": "created_by"}, "Modified On(UTC)": {"value": "modified_on"},
-                               "Modified By": {"value": "modified_by"}},
+                               "Created By": {"value": "created_by"}, "Modified On(UTC)": {"value": "updated_on"},
+                               "Modified By": {"value": "updated_by"}},
 
            "ROLE_PERMISSION": {
                "Privilege Name": {"value": "privilege_name"}, "Privilege Description": {"value": "privilege_desc"}},
 
            "CLIENT_PRIVILEGE": {"Privilege": {"value": "privilege"}, "Client": {"value": "client"},
                                 "Created On(UTC)": {"value": "created_on"},
-                                "Created By": {"value": "created_by"}, "Modified On(UTC)": {"value": "modified_on"},
-                                "Modified By": {"value": "modified_by"}},
+                                "Created By": {"value": "created_by"}, "Modified On(UTC)": {"value": "updated_on"},
+                                "Modified By": {"value": "updated_by"}},
 
            }
 
@@ -52,7 +52,7 @@ def export_query_to_excel(data, module_name):
             field = header_value.get("value")
             value = item.get(field)
 
-            if field in ["modified_on", "created_on"] and value:
+            if field in ["updated_on", "created_on"] and value:
                 try:
                     # Attempt to parse the datetime string as the first format
                     try:
@@ -62,7 +62,7 @@ def export_query_to_excel(data, module_name):
                     value = parsed_datetime.strftime('%Y-%m-%d %H:%M:%S')
                 except:
                     value = str(value)
-            elif field in ["modified_by", "created_by"] and isinstance(value, int):
+            elif field in ["updated_by", "created_by"] and isinstance(value, int):
                 value = user_info_dict.get(value, value)
 
             worksheet.write(row, col, value)

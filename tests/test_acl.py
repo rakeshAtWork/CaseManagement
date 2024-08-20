@@ -3,7 +3,7 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APIClient, APITestCase
 from django.contrib.auth import get_user_model
-from acl.models import UserRole, ClientPrivilege, MasterPrivilege
+from acl.models import UserRole, ClientPrivilege, MasterPrivilege, AppConfiguration, RolePermission
 
 User = get_user_model()
 
@@ -32,14 +32,14 @@ class BaseTestCase(APITestCase):
 
 class ListPrivilegesTestCase(BaseTestCase):
     def test_privilege_list(self):
+        # before list first populate some of the privileges
+        self.client.post(reverse('populate_privileges'), {}, format='json')
         url = reverse('privilege_list')
-        # data = {} # getting all the privileges
-
         response = self.client.post(url, {}, format='json')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        # Example assertions
         data = response.json()
         self.assertIsInstance(data["results"], list)
+        self.assertEqual(data["count"], 99)
 
     def test_privilege_list_invalid_page(self):
         url = reverse('privilege_list')
@@ -91,12 +91,11 @@ class ListPrivilegesTestCase(BaseTestCase):
 
 class PopulatePrivilegesTestCase(BaseTestCase):
     def test_populate_privileges(self):
-        url = reverse('populate-privileges')
+        url = reverse('populate_privileges')
         response = self.client.post(url, {}, format='json')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertIn("Permissions populated successfully.", response.json()['message'])
-        # from .models import Privilege
-        # self.assertEqual(Privilege.objects.count(), 35)
+        self.assertEqual(MasterPrivilege.objects.count(), 99)
 
 
 class RoleCreateAPITestCase(BaseTestCase):
@@ -121,15 +120,17 @@ class RoleCreateAPITestCase(BaseTestCase):
             "client_id": 1,
             "privilege_names": ["CREATE_APPLICATION", "VIEW_CLIENT_PERMISSION_LIST"]
         }
-        privileges_url = reverse('populate-privileges')
+        privileges_url = reverse('populate_privileges')
         self.client.post(privileges_url, {}, format="json")
         response = self.client.post(url, valid_payload, format='json')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         data = response.json()
         self.assertIsInstance(data, dict)
-        from acl.models import Role, RolePermission
         self.assertEqual(Role.objects.count(), 1)
         self.assertEqual(RolePermission.objects.count(), 2)
+        self.assertEqual(data["role_name"], "Admin")
+        self.assertEqual(data["role_description"], "Administrator role with full permissions")
+        self.assertEqual(int(data["client_id"]), 1)
 
     def test_create_role_WithDuplicateName(self):
         url = reverse('role_create')
@@ -145,11 +146,13 @@ class RoleCreateAPITestCase(BaseTestCase):
             "client_id": 1,
             "privilege_names": ["CREATE_APPLICATION", "VIEW_CLIENT_PERMISSION_LIST"]
         }
-        privileges_url = reverse('populate-privileges')
+        privileges_url = reverse('populate_privileges')
         self.client.post(privileges_url, {}, format="json")
         self.client.post(url, valid_payload, format='json')
         response = self.client.post(url, valid_payload_duplicate, format='json')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        data = response.json()
+        self.assertEqual("Role name must be unique", data["message"])
 
     def test_create_role_invalid_privilege(self):
         url = reverse("role_create")
@@ -189,9 +192,10 @@ class RoleCreateAPITestCase(BaseTestCase):
             "privilege_names": ["CREATE_APPLICATION", "VIEW_CLIENT_PERMISSION_LIST"]
         }
         response = self.client.post(url, empty_role_name_payload, format='json')
-        print(response.data)
+        # print(response.data)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("message", response.data)
+        self.assertEqual("role_name field may not be blank.", response.data["message"])
 
     def test_create_role_empty_payload(self):
         url = reverse("role_create")
@@ -199,13 +203,14 @@ class RoleCreateAPITestCase(BaseTestCase):
         response = self.client.post(url, empty_payload, format='json')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("message", response.json())
-        # self.assertIn("privilege_names", response.json())
+        self.assertIn("privilege_names", response.json()['error'])
+        self.assertIn('role_name', response.json()['error'])
 
     def test_role_create_unauthorized(self):
         """
         Test role creation when the user is not authenticated.
         """
-        self.client.logout()
+        self.client.logout()  # just removing the token, for  not getting authenticated.
         url = reverse('role_create')
         data = {
             "role_name": "Test Role",
@@ -215,10 +220,15 @@ class RoleCreateAPITestCase(BaseTestCase):
         }
         response = self.client.post(url, data, format='json')
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertEqual("Authentication credentials were not valid", response.json()['message'])
 
 
 class RoleFilterApiTestCase(BaseTestCase):
     def test_role_list_success(self):
+        # populate privileges
+        privileges_url = reverse('populate_privileges')
+        self.client.post(privileges_url, {}, format="json")
+
         url = reverse('role_list')
         # first create a role
         valid_payload = {
@@ -227,15 +237,28 @@ class RoleFilterApiTestCase(BaseTestCase):
             "client_id": 1,
             "privilege_names": ["CREATE_APPLICATION", "VIEW_CLIENT_PERMISSION_LIST"]
         }
-        self.client.post(url, valid_payload, format='json')
-
+        res1 = self.client.post(reverse('role_create'), valid_payload, format='json')
         valid_payload = {}
         response = self.client.post(url, valid_payload, format='json')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         data = response.json()
         self.assertIsInstance(data['results'], list)
+        self.assertEqual(data['count'], 1)
+        self.assertEqual(data['results'][0]['role_name'], "Admin")
+        self.assertEqual(data['results'][0]['role_description'], "Administrator role with full permissions")
 
     def test_role_list_invalid_page(self):
+        # populate privileges
+        privileges_url = reverse('populate_privileges')
+        self.client.post(privileges_url, {}, format="json")
+        # first create a role
+        valid_payload = {
+            "role_name": "Admin",
+            "role_description": "Administrator role with full permissions",
+            "client_id": 1,
+            "privilege_names": ["CREATE_APPLICATION", "VIEW_CLIENT_PERMISSION_LIST"]
+        }
+        self.client.post(reverse('role_create'), valid_payload, format='json')
         url = reverse('role_list')
         invalid_payload_page = {
             "page": -1,
@@ -246,6 +269,17 @@ class RoleFilterApiTestCase(BaseTestCase):
         self.assertEqual(response.json()['message'], 'page and page size should be positive integer')
 
     def test_role_list_invalid_page_size(self):
+        # populate privileges
+        privileges_url = reverse('populate_privileges')
+        self.client.post(privileges_url, {}, format="json")
+        # first create a role
+        valid_payload = {
+            "role_name": "Admin",
+            "role_description": "Administrator role with full permissions",
+            "client_id": 1,
+            "privilege_names": ["CREATE_APPLICATION", "VIEW_CLIENT_PERMISSION_LIST"]
+        }
+        self.client.post(reverse('role_create'), valid_payload, format='json')
         url = reverse('role_list')
         invalid_payload_page_size = {
             "page": 1,
@@ -256,18 +290,43 @@ class RoleFilterApiTestCase(BaseTestCase):
         self.assertEqual(response.json()['message'], 'page and page size should be positive integer')
 
     def test_role_list_filter(self):
+        # populate privileges
+        privileges_url = reverse('populate_privileges')
+        self.client.post(privileges_url, {}, format="json")
+        # first create a role
+        valid_payload = {
+            "role_name": "Admin",
+            "role_description": "Administrator role with full permissions",
+            "client_id": 1,
+            "privilege_names": ["CREATE_APPLICATION", "VIEW_CLIENT_PERMISSION_LIST"]
+        }
+        self.client.post(reverse('role_create'), valid_payload, format='json')
         url = reverse('role_list')
         filter_payload = {
             "page": 1,
             "page_size": 10,
-            "role_name": "User"
+            "role_name": "Admin"
         }
         response = self.client.post(url, filter_payload, format='json')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         data = response.json()
         self.assertIsInstance(data['results'], list)
+        self.assertEqual(data['count'], 1)
+        self.assertEqual(data['results'][0]['role_name'], "Admin")
+        self.assertEqual(data['results'][0]['role_description'], "Administrator role with full permissions")
 
     def test_role_list_order_by(self):
+        # populate privileges
+        privileges_url = reverse("populate_privileges")
+        self.client.post(privileges_url, {}, format="json")
+        # first create a role
+        valid_payload = {
+            "role_name": "Admin",
+            "role_description": "Administrator role with full permissions",
+            "client_id": 1,
+            "privilege_names": ["CREATE_APPLICATION", "VIEW_CLIENT_PERMISSION_LIST"]
+        }
+        self.client.post(reverse('role_create'), valid_payload, format='json')
         url = reverse("role_list")
         order_payload = {
             "page": 1,
@@ -280,6 +339,30 @@ class RoleFilterApiTestCase(BaseTestCase):
         data = response.json()
         self.assertIsInstance(data['results'], list)
 
+    def test_role_list_filter_client_id(self):
+        # populate privileges
+        privileges_url = reverse('populate_privileges')
+        self.client.post(privileges_url, {}, format="json")
+        # first create a role
+        valid_payload = {
+            "role_name": "Admin",
+            "role_description": "Administrator role with full permissions",
+            "client_id": 1,
+            "privilege_names": ["CREATE_APPLICATION", "VIEW_CLIENT_PERMISSION_LIST"]
+        }
+        self.client.post(reverse('role_create'), valid_payload, format='json')
+        url = reverse('role_list')
+        filter_payload = {
+            "client_id": 1
+        }
+        response = self.client.post(url, filter_payload, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        print(response.json())
+        data = response.json()
+        self.assertEqual(data['count'], 1)
+        self.assertEqual(data['results'][0]['role_name'], "Admin")
+        self.assertEqual(data['results'][0]['role_description'], "Administrator role with full permissions")
+
 
 class RoleUpdateDeleteApiTestCase(BaseTestCase):
     def test_update_role_success(self):
@@ -291,7 +374,7 @@ class RoleUpdateDeleteApiTestCase(BaseTestCase):
             "client_id": 1,
             "privilege_names": ["CREATE_APPLICATION", "VIEW_CLIENT_PERMISSION_LIST"]
         }
-        privileges_url = reverse('populate-privileges')
+        privileges_url = reverse('populate_privileges')
         self.client.post(privileges_url, {}, format="json")
         response_created = self.client.post(url, valid_payload, format='json')
 
@@ -305,6 +388,7 @@ class RoleUpdateDeleteApiTestCase(BaseTestCase):
         }
         response = self.client.put(url_update_role, update_data, format='json')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+        # print(response.json())
 
     def test_update_role_invalid(self):
         # before updating lets create a new role
@@ -315,7 +399,7 @@ class RoleUpdateDeleteApiTestCase(BaseTestCase):
             "client_id": 1,
             "privilege_names": ["CREATE_APPLICATION", "VIEW_CLIENT_PERMISSION_LIST"]
         }
-        privileges_url = reverse('populate-privileges')
+        privileges_url = reverse('populate_privileges')
         self.client.post(privileges_url, {}, format="json")
         response_created = self.client.post(url, valid_payload, format='json')
 
@@ -340,12 +424,31 @@ class RoleUpdateDeleteApiTestCase(BaseTestCase):
             "client_id": 1,
             "privilege_names": ["CREATE_APPLICATION", "VIEW_CLIENT_PERMISSION_LIST"]
         }
-        privileges_url = reverse('populate-privileges')
+        privileges_url = reverse('populate_privileges')
         self.client.post(privileges_url, {}, format="json")
         response_created = self.client.post(url, valid_payload, format='json')
         url_update_role = reverse('role_update', kwargs={'pk': response_created.json()['id']})
         response = self.client.delete(url_update_role, format='json')
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+
+    def test_update_role_not_found(self):
+        """
+            This test will check that  trying to update a role that doesn't exist
+            returns a 404 status code.
+        """
+        # Generate a random UUID that does not correspond to any existing role
+        random_uuid = uuid.uuid4()
+        url_update_role = reverse("role_update", kwargs={'pk': random_uuid})
+
+        update_data = {
+            "role_name": "NonExistentRole",
+            "role_description": "This role does not exist",
+            "client_id": 1,
+            "privilege_names": ["CREATE_APPLICATION"]
+        }
+
+        response = self.client.put(url_update_role, update_data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
 
 class RolePrivilegesListTestCase(BaseTestCase):
@@ -358,7 +461,7 @@ class RolePrivilegesListTestCase(BaseTestCase):
             "client_id": 1,
             "privilege_names": ["CREATE_APPLICATION", "VIEW_CLIENT_PERMISSION_LIST"]
         }
-        privileges_url = reverse('populate-privileges')
+        privileges_url = reverse('populate_privileges')
         self.client.post(privileges_url, {}, format="json")
         self.client.post(url, valid_payload, format='json')
         url_role_privileges = reverse('role_list_privileges')
@@ -374,7 +477,7 @@ class RolePrivilegesListTestCase(BaseTestCase):
             "client_id": 1,
             "privilege_names": ["CREATE_APPLICATION", "VIEW_CLIENT_PERMISSION_LIST"]
         }
-        privileges_url = reverse('populate-privileges')
+        privileges_url = reverse('populate_privileges')
         self.client.post(privileges_url, {}, format="json")
         response_created = self.client.post(url, valid_payload, format='json')
         url_get_single_role = reverse('role_detail_privileges', kwargs={'pk': response_created.json()['id']})
@@ -390,12 +493,48 @@ class RolePrivilegesListTestCase(BaseTestCase):
             "client_id": 1,
             "privilege_names": ["CREATE_APPLICATION", "VIEW_CLIENT_PERMISSION_LIST"]
         }
-        privileges_url = reverse('populate-privileges')
+        privileges_url = reverse('populate_privileges')
         self.client.post(privileges_url, {}, format="json")
         response_created = self.client.post(url, valid_payload, format='json')
         url_get_single_role = reverse('role_detail_privileges', kwargs={'pk': 'fb12629f-f193-47fr-bdea-84991bd81625'})
         response = self.client.get(url_get_single_role, format='json')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_get_empty_role_list(self):
+        """
+        This test verifies that the API correctly handles
+        cases where no roles exist in the database.
+        """
+        url = reverse('role_list_privileges')
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.json()
+        self.assertEqual(data, [])
+
+    def test_get_role_invalid_uuid(self):
+        """
+                This test verifies that the API properly handles
+                an invalid UUID format in the request url.
+        """
+        invalid_uuid = "1234-invalid-uuid"
+        url = reverse('role_detail_privileges', kwargs={'pk': invalid_uuid})
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.json()['error'], "Invalid UUID format")
+
+    def test_get_role_not_found(self):
+        """
+            This test verifies that the API properly handles
+            when a role with a valid UUID does not exist.
+        """
+        non_existent_uuid = uuid.uuid4()  # Generate a random UUID
+        url = reverse('role_detail_privileges', kwargs={'pk': str(non_existent_uuid)})
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(response.json()['error'], "Role not found")
 
 
 from acl.models import Role
@@ -413,7 +552,7 @@ class RoleUserCreateAPITestCase(BaseTestCase):
             "client_id": 1,
             "privilege_names": ["CREATE_APPLICATION", "VIEW_CLIENT_PERMISSION_LIST"]
         }
-        privileges_url = reverse('populate-privileges')
+        privileges_url = reverse('populate_privileges')
         self.client.post(privileges_url, {}, format="json")
         response_created = self.client.post(url, valid_payload, format='json')
         self.role_id = response_created.json()['id']
@@ -521,13 +660,13 @@ class ClientPrivilegeModifyApiTestCase(BaseTestCase):
         self.assertEqual(data["id"], str(self.client_privilege.id))
         self.assertEqual(data["privilege"], payload["privilege"])
         self.assertEqual(data["client"], payload["client"])
-        self.assertEqual(data["modified_by"], self.user.id)
+        self.assertEqual(data["updated_by"], self.user.id)
 
         # Verify the updated data in the database
         self.client_privilege.refresh_from_db()
         self.assertEqual(self.client_privilege.privilege, payload["privilege"])
         self.assertEqual(self.client_privilege.client, payload["client"])
-        self.assertEqual(self.client_privilege.modified_by, self.user.id)
+        self.assertEqual(self.client_privilege.updated_by, self.user.id)
 
     def test_partial_update_client_privilege(self):
         payload = {
@@ -540,13 +679,13 @@ class ClientPrivilegeModifyApiTestCase(BaseTestCase):
         self.assertEqual(data["id"], str(self.client_privilege.id))
         self.assertEqual(data["privilege"], payload["privilege"])
         self.assertEqual(data["client"], self.client_privilege.client)
-        self.assertEqual(data["modified_by"], self.user.id)
+        self.assertEqual(data["updated_by"], self.user.id)
 
         # Verify the updated data in the database
         self.client_privilege.refresh_from_db()
         self.assertEqual(self.client_privilege.privilege, payload["privilege"])
         self.assertEqual(self.client_privilege.client, self.client_privilege.client)
-        self.assertEqual(self.client_privilege.modified_by, self.user.id)
+        self.assertEqual(self.client_privilege.updated_by, self.user.id)
 
     def test_delete_client_privilege(self):
         response = self.client.delete(self.url)
@@ -665,3 +804,169 @@ class ClientPrivilegeFilterApiTestCase(BaseTestCase):
         data = response.json()
         self.assertEqual(data["count"], 0)
         self.assertEqual(len(data["results"]), 0)
+
+
+class AppConfigurationListCreateAPITest(BaseTestCase):
+
+    def setUp(self):
+        self.client = APIClient()
+        # Create test user
+        self.user = User.objects.create_user(
+            email='user@example.com',
+            password='password',
+            first_name='John',
+            last_name='Doe'
+        )
+        # Authenticate the user
+        self.client.force_authenticate(user=self.user)
+
+        # Create a sample AppConfiguration
+        self.config = AppConfiguration.objects.create(
+            application_name="TestApp",
+            email_history_days=30,
+            activity_history_days=60,
+            client_start_no="C001",
+            project_start_no="P001",
+            ticket_start_no="T001",
+            ticket_auto_close_days=7,
+            auto_notification_hours=24,
+            created_by=self.user.email
+        )
+
+    def test_list_app_configurations(self):
+        url = reverse('appconfiguration_list_create')
+        response = self.client.get(url, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]['application_name'], self.config.application_name)
+
+    def test_create_app_configuration(self):
+        url = reverse('appconfiguration_list_create')
+        data = {
+            "application_name": "NewApp",
+            "email_history_days": 45,
+            "activity_history_days": 90,
+            "client_start_no": "C002",
+            "project_start_no": "P002",
+            "ticket_start_no": "T002",
+            "ticket_auto_close_days": 10,
+            "auto_notification_hours": 12
+        }
+        response = self.client.post(url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(AppConfiguration.objects.count(), 2)
+        self.assertEqual(AppConfiguration.objects.last().application_name, "NewApp")
+
+    def test_create_app_configuration_duplicate_name(self):
+        url = reverse('appconfiguration_list_create')
+        data = {
+            "application_name": "TestApp",  # Duplicate application_name
+            "email_history_days": 45,
+            "activity_history_days": 90,
+            "client_start_no": "C003",
+            "project_start_no": "P003",
+            "ticket_start_no": "T003",
+            "ticket_auto_close_days": 15,
+            "auto_notification_hours": 48
+        }
+        response = self.client.post(url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('Application name must be unique.', response.data['message'])
+
+    def test_create_app_configuration_missing_fields(self):
+        url = reverse('appconfiguration_list_create')
+        data = {
+            "application_name": "IncompleteApp"
+            # Missing required fields like email_history_days, activity_history_days, etc.
+        }
+        response = self.client.post(url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        print(response.json())
+        self.assertIn('email_history_days field is required.', response.json()['message'])
+        self.assertIn('activity_history_days', response.json()['error'])
+
+
+class AppConfigurationListUpdateDestroyTestCase(BaseTestCase):
+
+    def setUp(self):
+        super().setUp()
+
+        self.configuration = AppConfiguration.objects.create(
+            application_name='Test App',
+            email_history_days=30,
+            activity_history_days=60,
+            client_start_no='CS1001',
+            project_start_no='PS1001',
+            ticket_start_no='TS1001',
+            ticket_auto_close_days=7,
+            auto_notification_hours=24,
+            created_by='testuser',
+        )
+        self.valid_payload = {
+            'application_name': 'Updated App',
+            'email_history_days': 45,
+            'activity_history_days': 90,
+            'client_start_no': 'CS2002',
+            'project_start_no': 'PS2002',
+            'ticket_start_no': 'TS2002',
+            'ticket_auto_close_days': 14,
+            'auto_notification_hours': 12,
+        }
+        self.invalid_payload = {
+            'application_name': '',
+            'email_history_days': -10,
+            'activity_history_days': 'ninety',
+            'client_start_no': '',
+            'project_start_no': '',
+            'ticket_start_no': '',
+            'ticket_auto_close_days': '',
+            'auto_notification_hours': '',
+        }
+
+    def test_retrieve_appconfiguration(self):
+        response = self.client.get(
+            reverse('appconfiguration_detail', kwargs={'pk': self.configuration.pk})
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['application_name'], self.configuration.application_name)
+        self.assertEqual(response.data['email_history_days'], self.configuration.email_history_days)
+        self.assertEqual(response.data['ticket_auto_close_days'], 7)
+
+    def test_update_appconfiguration_valid(self):
+        response = self.client.put(
+            reverse('appconfiguration_detail', kwargs={'pk': self.configuration.pk}),
+            data=self.valid_payload,
+            format='json'
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.configuration.refresh_from_db()
+        self.assertEqual(self.configuration.application_name, 'Updated App')
+        self.assertEqual(self.configuration.email_history_days, 45)
+
+    def test_update_appconfiguration_invalid(self):
+        response = self.client.put(
+            reverse('appconfiguration_detail', kwargs={'pk': self.configuration.pk}),
+            data=self.invalid_payload,
+            format='json'
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.configuration.refresh_from_db()
+        self.assertNotEqual(self.configuration.application_name, '')
+        self.assertNotEqual(self.configuration.email_history_days, -10)
+
+    def test_partial_update_appconfiguration(self):
+        response = self.client.patch(
+            reverse('appconfiguration_detail', kwargs={'pk': self.configuration.pk}),
+            data={'application_name': 'Partially Updated App'},
+            format='json'
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.configuration.refresh_from_db()
+        self.assertEqual(self.configuration.application_name, 'Partially Updated App')
+
+    def test_delete_appconfiguration(self):
+        response = self.client.delete(
+            reverse('appconfiguration_detail', kwargs={'pk': self.configuration.pk})
+        )
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertEqual(AppConfiguration.objects.count(), 0)

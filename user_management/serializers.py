@@ -36,12 +36,13 @@ class UserSerializers(serializers.ModelSerializer):
 
     status = serializers.IntegerField(required=False, allow_null=True)
     export = serializers.BooleanField(required=False, allow_null=True, default=False)
+    is_active = serializers.BooleanField(required=False)
 
     class Meta:
         model = CustomUser
         fields = ('email', 'first_name', 'last_name', 'organization_name',
                   'phone_number', 'order_by', 'order_type', 'page', 'page_size', 'status', "role",
-                  "export")
+                  "export", 'is_active')
 
 
 class UserReadSerializer(serializers.ModelSerializer):
@@ -49,12 +50,14 @@ class UserReadSerializer(serializers.ModelSerializer):
     This serializer is used on the time of responding data for user
     """
     role_data = serializers.SerializerMethodField(source='get_role_data', read_only=True)
+    created_by = serializers.SerializerMethodField(source='get_created_by', read_only=True)
+    updated_by = serializers.SerializerMethodField(source='get_updated_by', read_only=True)
 
     class Meta:
         model = CustomUser
         fields = ("id", "email", 'first_name', 'last_name', 'created_on', 'last_login', 'is_active',
-                  'is_delete', 'phone_number', 'modified_on', "last_login", "organisation_name", "timezone",
-                  "country", "created_by", "modified_by", "role_data")
+                  'is_delete', 'phone_number', 'updated_on', "last_login", "organisation_name", "timezone",
+                  "country", "created_by", "updated_by", "role_data")
 
     def get_role_data(self, obj):
         """
@@ -65,6 +68,22 @@ class UserReadSerializer(serializers.ModelSerializer):
             return []
         return RoleShortInfoSerializer(Role.objects.filter(id__in=role), read_only=True, context=self.context,
                                        many=True).data
+
+    def get_created_by(self, obj):
+        """
+        This method retrieves the name of the user who created the object
+        """
+        if obj.created_by:
+            return f"{obj.first_name} {obj.last_name}"
+        return None
+
+    def get_updated_by(self, obj):
+        """
+        This method retrieves the name of the user who last modified the object
+        """
+        if obj.updated_by:
+            return f"{obj.first_name} {obj.last_name}"
+        return None
 
 
 class UserProfileReadSerializer(serializers.ModelSerializer):
@@ -77,8 +96,8 @@ class UserProfileReadSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
         fields = ("id", "email", 'first_name', 'last_name', 'created_on', 'last_login', 'is_active',
-                  'is_delete', 'phone_number', 'modified_on', "last_login", "organisation_name", "timezone",
-                  "country", "created_by", "modified_by", "role_data", "privileges")
+                  'is_delete', 'phone_number', 'updated_on', "last_login", "organisation_name", "timezone",
+                  "country", "created_by", "updated_by", "role_data", "privileges")
 
     def get_role_data(self, obj):
         """
@@ -112,7 +131,7 @@ class AdminUserRegisterSerializer(serializers.ModelSerializer):
         fields = (
             'id', 'first_name', 'last_name', 'phone_number', 'email', 'password', 'is_active',
             'last_login', 'is_delete', "organisation_name", "timezone", "country")
-        read_only_fields = ('is_active', 'last_login', 'is_delete')
+        read_only_fields = ('last_login', 'is_delete')
 
     def validate_password(self, value: str) -> str:
         """
@@ -132,6 +151,8 @@ class UserSerializer(serializers.ModelSerializer):
     """
     Register new user model serializer
     """
+    role_id = serializers.CharField(max_length=100, required=False)
+    is_active = serializers.BooleanField(default=True, required=False)
     phone_number = serializers.CharField(
         validators=[
             RegexValidator(
@@ -143,13 +164,23 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CustomUser
-        fields = ('first_name', 'last_name', 'phone_number', 'email',
-                  "organisation_name", "timezone", "country")
+        fields = ("id", 'first_name', 'last_name', 'phone_number', 'email',
+                  "organisation_name", "timezone", "country", "role_id", 'is_active')
 
     def create(self, validated_data):
+        role_id = validated_data.pop("role_id", None)
         random_password = get_random_string()
         validated_data["password"] = make_password(random_password)
         instance = super(UserSerializer, self).create(validated_data)
+
+        # Assign role to user.
+        if role_id:
+            try:
+                role = Role.objects.get(id=role_id)
+                UserRole.objects.create(user=instance, role=role, created_by=instance.email)
+            except Exception as e:
+                raise serializers.ValidationError({"error": str(e), "message": "Invalid role ID provided."})
+
         try:
             print("trying to send an email to the user for password.")
             print(random_password)
@@ -164,6 +195,28 @@ class UserSerializer(serializers.ModelSerializer):
             print("Failed to send email to user")
             # print(e.msg)
 
+        return instance
+
+    def update(self, instance, validated_data):
+        role_id = validated_data.pop("role_id", None)
+
+        # Update user fields
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+
+        # Update user role if role_id is provided
+        if role_id:
+            try:
+                role = Role.objects.get(id=role_id)
+                # Assuming you want to update the existing role or create if not exists
+                user_role, created = UserRole.objects.update_or_create(
+                    user=instance,
+                    defaults={'role': role, 'created_by': self.context['request'].user.email}
+                )
+            except Exception as e:
+                raise serializers.ValidationError({"error": str(e), "message": "Invalid role ID provided."})
+
+        instance.save()
         return instance
 
 
@@ -235,12 +288,12 @@ class UserStatusSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         is_active = instance.is_active
-        modified_by = validated_data.get("modified_by")
+        updated_by = validated_data.get("updated_by")
         if instance.email == self.context['request'].user.email:
             raise serializers.ValidationError({"msg": "You can't perform this operation with yourself"})
         instance.is_active = not is_active
-        instance.modified_by = modified_by
-        instance.modified_on = timezone.now().astimezone(timezone.timezone.utc)
+        instance.updated_by = updated_by
+        instance.updated_on = timezone.now().astimezone(timezone.timezone.utc)
         instance.save()
         if instance.is_active and not instance.last_login:
             random_password = get_random_string(length=12)
@@ -261,8 +314,8 @@ class UserEditSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CustomUser
-        fields = ('id', 'first_name', 'last_name', 'phone_number', 'email', 'password',
-                  "organisation_name", "timezone", "country")
+        fields = ('id', 'first_name', 'last_name', 'phone_number', 'email',
+                  "organisation_name", "timezone", "country",)
 
 
 class UserPasswordResetSerializer(serializers.ModelSerializer):
@@ -391,9 +444,9 @@ class TokenSerializer(serializers.ModelSerializer):
     class Meta:
         model = TokenModule
         fields = ("id", "user_id", "expiry_days", "expiry_time", "primary_token", "type",
-                  "created_by", "created_on", "modified_by", "modified_on")
+                  "created_by", "created_on", "updated_by", "updated_on")
         read_only_fields = (
-            "id", "primary_token", "expiry_time", "created_by", "created_on", "modified_by", "modified_on")
+            "id", "primary_token", "expiry_time", "created_by", "created_on", "updated_by", "updated_on")
 
     def create(self, validated_data):
         validated_data["primary_token"] = get_random_string(length=120)

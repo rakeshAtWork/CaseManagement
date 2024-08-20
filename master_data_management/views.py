@@ -3,13 +3,15 @@ from django.core.paginator import Paginator
 from drf_spectacular.utils import extend_schema
 from rest_framework import generics, serializers
 from drf_yasg.utils import swagger_auto_schema
-from rest_framework.generics import RetrieveUpdateDestroyAPIView, CreateAPIView
+from rest_framework.generics import RetrieveUpdateDestroyAPIView, CreateAPIView, ListCreateAPIView
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from acl.privilege import CozentusPermission
 from acl.export_excel import export_query_to_excel
 from master_data_management.models import FileType, Client, BusinessUnit, Vendor, Application, Customer, AccountType, \
-    SupplierContactDetails, D365FOSetup, CompanyInfoForValidation, CPPSanctionAssessment, VendorDetails
+    SupplierContactDetails, D365FOSetup, CompanyInfoForValidation, CPPSanctionAssessment, VendorDetails, Currency, \
+    Country, Category, Department, UserDepartment, Status, EmailTemplate
 from master_data_management.permissions import permission_file_type_create, permission_file_type_view, \
     permission_file_type_edit, permission_file_type_delete, permission_file_type_list, permission_client_create, \
     permission_client_view, permission_client_edit, permission_client_delete, permission_client_list, \
@@ -33,7 +35,14 @@ from master_data_management.serializers import (FileTypeSerializers, FileTypeRea
                                                 UpdateVendorDetailsSerializer, VendorDetailsFilterSerializer,
                                                 D365FOSetupReadSerializer, D365FOSetupFilterSerializer,
                                                 SupplierContactDetailsReadSerializer,
-                                                SupplierContactDetailsFilterSerializer)
+                                                SupplierContactDetailsFilterSerializer, CurrencySerializer,
+                                                CountrySerializer, CountryFilterSerializer, CountryReadSerializer,
+                                                CurrencyFilterSerializer, CurrencyReadSerializer,
+                                                CategoryFilterSerializer, CategorySerializer, DepartmentReadSerializer,
+                                                DepartmentFilterSerializer, DepartmentSerializer,
+                                                UserDepartmentSerializer, StatusSerializer, StatusFilterSerializer,
+                                                EmailTemplateSerializer, EmailTemplateFilterSerializer,
+                                                EmailTemplateReadSerializer)
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.response import Response
@@ -69,8 +78,8 @@ class FileTypeModifyApi(RetrieveUpdateDestroyAPIView):
     queryset = FileType.objects.all()
 
     def perform_update(self, serializer):
-        serializer.save(modified_by=self.request.user.id,
-                        modified_on=timezone.now().astimezone(timezone.timezone.utc))
+        serializer.save(updated_by=self.request.user.id,
+                        updated_on=timezone.now().astimezone(timezone.timezone.utc))
 
 
 class FileTypeFilterApi(APIView):
@@ -104,7 +113,7 @@ class FileTypeFilterApi(APIView):
                 "file_extension": "file_extension__icontains",
                 "max_file_size": "max_file_size__icontains", "file_description": "file_description__icontains",
                 "created_on": "created_on", "created_by": "created_by",
-                "modified_on": "modified_on", "modified_by": "modified_by"
+                "updated_on": "updated_on", "updated_by": "updated_by"
             }
             query_dict = {filter_dict.get(key, None): value for key, value in data.items() if
                           value or isinstance(value, (int, bool))}
@@ -116,7 +125,7 @@ class FileTypeFilterApi(APIView):
                 "file_extension": "file_extension",
                 "max_file_size": "max_file_size", "file_description": "file_description",
                 "created_on": "created_on", "created_by": "created_by",
-                "modified_on": "modified_on", "modified_by": "modified_by"
+                "updated_on": "updated_on", "updated_by": "updated_by"
             }
             query_filter = order_dict.get(order_by, None)
             if query_filter:
@@ -172,8 +181,8 @@ class ClientModifyApi(RetrieveUpdateDestroyAPIView):
     queryset = Client.objects.all()
 
     def perform_update(self, serializer):
-        serializer.save(modified_by=self.request.user.id,
-                        modified_on=timezone.now().astimezone(timezone.timezone.utc))
+        serializer.save(updated_by=self.request.user.id,
+                        updated_on=timezone.now().astimezone(timezone.timezone.utc))
 
 
 class ClientFilterApi(APIView):
@@ -208,7 +217,7 @@ class ClientFilterApi(APIView):
                 "contact_name": "contact_name__icontains", "contact_email": "contact_email__icontains",
                 "contact_number": "contact_number__icontains",
                 "created_on": "created_on", "created_by": "created_by",
-                "modified_on": "modified_on", "modified_by": "modified_by"
+                "updated_on": "updated_on", "updated_by": "updated_by"
             }
             query_dict = {filter_dict.get(key, None): value for key, value in data.items() if
                           value or isinstance(value, (int, bool))}
@@ -220,7 +229,7 @@ class ClientFilterApi(APIView):
                 "contact_name": "contact_name", "contact_email": "contact_email",
                 "contact_number": "contact_number",
                 "created_on": "created_on", "created_by": "created_by",
-                "modified_on": "modified_on", "modified_by": "modified_by"
+                "updated_on": "updated_on", "updated_by": "updated_by"
             }
             query_filter = order_dict.get(order_by, None)
             if query_filter:
@@ -276,8 +285,8 @@ class CustomerModifyApi(RetrieveUpdateDestroyAPIView):
     queryset = Customer.objects.all()
 
     def perform_update(self, serializer):
-        serializer.save(modified_by=self.request.user.id,
-                        modified_on=timezone.now().astimezone(timezone.timezone.utc))
+        serializer.save(updated_by=self.request.user.id,
+                        updated_on=timezone.now().astimezone(timezone.timezone.utc))
 
 
 class CustomerFilterApi(APIView):
@@ -312,7 +321,7 @@ class CustomerFilterApi(APIView):
                 "contact_name": "contact_name__icontains", "contact_email": "contact_email__icontains",
                 "contact_number": "contact_number__icontains",
                 "created_on": "created_on", "created_by": "created_by",
-                "modified_on": "modified_on", "modified_by": "modified_by",
+                "updated_on": "updated_on", "updated_by": "updated_by",
                 "disposal_notification_period": "disposal_notification_period",
                 "retention_period": "retention_period"
             }
@@ -326,7 +335,7 @@ class CustomerFilterApi(APIView):
                 "contact_name": "contact_name", "contact_email": "contact_email",
                 "contact_number": "contact_number", "disposal_action": "disposal_action",
                 "created_on": "created_on", "created_by": "created_by",
-                "modified_on": "modified_on", "modified_by": "modified_by", "retention_period": "retention_period"
+                "updated_on": "updated_on", "updated_by": "updated_by", "retention_period": "retention_period"
             }
             query_filter = order_dict.get(order_by, None)
             if query_filter:
@@ -382,8 +391,8 @@ class BusinessUnitModifyApi(RetrieveUpdateDestroyAPIView):
     queryset = BusinessUnit.objects.all()
 
     def perform_update(self, serializer):
-        serializer.save(modified_by=self.request.user.id,
-                        modified_on=timezone.now().astimezone(timezone.timezone.utc))
+        serializer.save(updated_by=self.request.user.id,
+                        updated_on=timezone.now().astimezone(timezone.timezone.utc))
 
 
 class BusinessUnitFilterApi(APIView):
@@ -418,7 +427,7 @@ class BusinessUnitFilterApi(APIView):
                 "contact_name": "contact_name__icontains", "contact_email": "contact_email__icontains",
                 "contact_number": "contact_number__icontains",
                 "created_on": "created_on", "created_by": "created_by", "is_delete": "is_delete",
-                "modified_on": "modified_on", "modified_by": "modified_by"
+                "updated_on": "updated_on", "updated_by": "updated_by"
             }
             query_dict = {filter_dict.get(key, None): value for key, value in data.items() if
                           value or isinstance(value, (int, bool))}
@@ -431,7 +440,7 @@ class BusinessUnitFilterApi(APIView):
                 "contact_name": "contact_name", "contact_email": "contact_email",
                 "contact_number": "contact_number", "is_delete": "is_delete",
                 "created_on": "created_on", "created_by": "created_by",
-                "modified_on": "modified_on", "modified_by": "modified_by"
+                "updated_on": "updated_on", "updated_by": "updated_by"
             }
             query_filter = order_dict.get(order_by, None)
             if query_filter:
@@ -487,8 +496,8 @@ class VendorModifyApi(RetrieveUpdateDestroyAPIView):
     queryset = Vendor.objects.all()
 
     def perform_update(self, serializer):
-        serializer.save(modified_by=self.request.user.id,
-                        modified_on=timezone.now().astimezone(timezone.timezone.utc))
+        serializer.save(updated_by=self.request.user.id,
+                        updated_on=timezone.now().astimezone(timezone.timezone.utc))
 
 
 class VendorFilterApi(APIView):
@@ -523,7 +532,7 @@ class VendorFilterApi(APIView):
                 "contact_name": "contact_name__icontains", "contact_email": "contact_email__icontains",
                 "contact_number": "contact_number__icontains", "is_delete": "is_delete",
                 "created_on": "created_on", "created_by": "created_by",
-                "modified_on": "modified_on", "modified_by": "modified_by", "retention_period": "retention_period",
+                "updated_on": "updated_on", "updated_by": "updated_by", "retention_period": "retention_period",
                 "disposal_notification_period": "disposal_notification_period"
             }
             query_dict = {filter_dict.get(key, None): value for key, value in data.items() if
@@ -536,7 +545,7 @@ class VendorFilterApi(APIView):
                 "contact_name": "contact_name", "contact_email": "contact_email",
                 "contact_number": "contact_number", "is_delete": "is_delete",
                 "created_on": "created_on", "created_by": "created_by",
-                "modified_on": "modified_on", "modified_by": "modified_by", "retention_period": "retention_period",
+                "updated_on": "updated_on", "updated_by": "updated_by", "retention_period": "retention_period",
                 "disposal_notification_period": "disposal_notification_period"
             }
             query_filter = order_dict.get(order_by, None)
@@ -593,8 +602,8 @@ class ApplicationModifyApi(RetrieveUpdateDestroyAPIView):
     queryset = Application.objects.all()
 
     def perform_update(self, serializer):
-        serializer.save(modified_by=self.request.user.id,
-                        modified_on=timezone.now().astimezone(timezone.timezone.utc))
+        serializer.save(updated_by=self.request.user.id,
+                        updated_on=timezone.now().astimezone(timezone.timezone.utc))
 
 
 class ApplicationFilterApi(APIView):
@@ -623,7 +632,7 @@ class ApplicationFilterApi(APIView):
                 "contact_email": "contact_email__icontains", "status": "status",
                 "name": "name__icontains", "contact_number": "contact_number__icontains",
                 "created_on": "created_on", "created_by": "created_by",
-                "modified_on": "modified_on", "modified_by": "modified_by"
+                "updated_on": "updated_on", "updated_by": "updated_by"
             }
             query_dict = {filter_dict.get(key, None): value for key, value in data.items() if
                           value or isinstance(value, (int, bool))}
@@ -633,7 +642,7 @@ class ApplicationFilterApi(APIView):
                 "code": "code__icontains", "contact_name": "contact_name", "contact_email": "contact_email",
                 "name": "name__icontains", "contact_number": "contact_number",
                 "created_on": "created_on", "created_by": "created_by", "status": "status",
-                "modified_on": "modified_on", "modified_by": "modified_by"
+                "updated_on": "updated_on", "updated_by": "updated_by"
             }
             query_filter = order_dict.get(order_by, None)
             if query_filter:
@@ -981,3 +990,666 @@ class SupplierContactDetailsFilterApi(APIView):
 
         except Exception as ee:
             return Response({"message": str(ee)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class CountryListCreateAPIView(generics.ListCreateAPIView):
+    queryset = Country.objects.all()
+    serializer_class = CountrySerializer
+    permission_classes = [CozentusPermission]
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user.id, updated_by=self.request.user.id)
+
+
+class CountryRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Country.objects.all()
+    serializer_class = CountrySerializer
+    permission_classes = [CozentusPermission]
+
+    def perform_update(self, serializer):
+        serializer.save(updated_by=self.request.user.id)
+
+    def perform_destroy(self, instance):
+        instance.is_delete = True
+        instance.save()
+
+
+class CurrencyListCreateAPIView(generics.ListCreateAPIView):
+    queryset = Currency.objects.all()
+    serializer_class = CurrencySerializer
+    permission_classes = [CozentusPermission]
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user.id, updated_by=self.request.user.id)
+
+
+class CurrencyRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Currency.objects.all()
+    serializer_class = CurrencySerializer
+    permission_classes = [CozentusPermission]
+
+    def perform_update(self, serializer):
+        serializer.save(updated_by=self.request.user.id)
+
+    def perform_destroy(self, instance):
+        instance.is_delete = True
+        instance.save()
+
+
+class CountryCreateApi(CreateAPIView):
+    """
+        Country Create api view
+    """
+    case_management_object_permissions = {
+        # 'POST': (permission_country_create,)
+    }
+    permission_classes = [CozentusPermission]
+    serializer_class = CountrySerializer
+    queryset = Country.objects.all()
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user.id)
+
+
+class CountryModifyApi(RetrieveUpdateDestroyAPIView):
+    queryset = Country.objects.all()
+    serializer_class = CountrySerializer
+
+    def perform_update(self, serializer):
+        serializer.save(updated_by=self.request.user.id)
+
+    def perform_destroy(self, instance):
+        instance.is_delete = True
+        instance.save()
+
+
+class CountryFilterApi(APIView):
+    """
+    Country filter API to retrieve filtered and paginated country data.
+    """
+    permission_classes = [CozentusPermission]
+
+    @extend_schema(request=CountryFilterSerializer, responses=CountryReadSerializer)
+    def post(self, request):
+        try:
+            order_by = request.data.pop('order_by', None)
+            order_type = request.data.pop('order_type', None)
+            page_size = request.data.get("page_size", 50)
+            page = request.data.get("page", 1)
+
+            if page < 1 or page_size < 1:
+                return Response({"message": "page and page size should be positive integers"},
+                                status=status.HTTP_400_BAD_REQUEST)
+
+            serializer = CountryFilterSerializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            data = serializer.validated_data
+
+            filter_dict = {
+                "country_name": "country_name__icontains",
+                "country_code": "country_code__icontains",
+                "description": "description__icontains",
+                "created_by": "created_by",
+                "is_active": "is_active"
+            }
+
+            query_filter = {filter_dict[key]: value for key, value in data.items() if
+                            key in filter_dict and value is not None}
+            countries = Country.objects.filter(**query_filter)
+
+            order_by_dict = {
+                "country_name": "country_name",
+                "country_code": "country_code",
+                "created_on": "created_on",
+                "updated_on": "updated_on"
+            }
+
+            query_order_by = order_by_dict.get(order_by)
+            if order_type == "desc" and query_order_by:
+                query_order_by = f"-{query_order_by}"
+            if query_order_by:
+                countries = countries.order_by(query_order_by)
+
+            paginator = Paginator(countries, page_size)
+            number_pages = paginator.num_pages
+
+            if page > number_pages and page > 1:
+                return Response({"message": "Page not found"}, status=status.HTTP_400_BAD_REQUEST)
+
+            page_obj = paginator.get_page(page)
+            results = CountryReadSerializer(page_obj, many=True)
+
+            return Response({'count': countries.count(), 'results': results.data}, status=status.HTTP_200_OK)
+
+        except serializers.ValidationError as ve:
+            raise serializers.ValidationError(ve.detail)
+        except Exception as ee:
+            return Response(str(ee), status=status.HTTP_400_BAD_REQUEST)
+
+
+class CurrencyCreateApi(CreateAPIView):
+    """
+    Currency Create api view
+    """
+    case_management_object_permissions = {
+        # 'POST': (permission_currency_create,)
+    }
+    permission_classes = [CozentusPermission]
+    serializer_class = CurrencySerializer
+    queryset = Currency.objects.all()
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user.id)
+
+
+class CurrencyModifyApi(RetrieveUpdateDestroyAPIView):
+    queryset = Currency.objects.all()
+    serializer_class = CurrencySerializer
+
+    def perform_update(self, serializer):
+        serializer.save(updated_by=self.request.user.id)
+
+
+class CurrencyFilterApi(APIView):
+    """
+    Currency filter API to retrieve filtered and paginated currency data.
+    """
+    permission_classes = [CozentusPermission]
+
+    @extend_schema(request=CurrencyFilterSerializer, responses=CurrencyReadSerializer)
+    def post(self, request):
+        try:
+            order_by = request.data.pop('order_by', None)
+            order_type = request.data.pop('order_type', None)
+            page_size = request.data.get("page_size", 50)
+            page = request.data.get("page", 1)
+
+            if page < 1 or page_size < 1:
+                return Response({"message": "page and page size should be positive integers"},
+                                status=status.HTTP_400_BAD_REQUEST)
+
+            serializer = CurrencyFilterSerializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            data = serializer.validated_data
+
+            filter_dict = {
+                "currency_name": "currency_name__icontains",
+                "currency_code": "currency_code__icontains",
+                # "country_code": "country_code__icontains",
+                "created_by": "created_by",
+                "is_active": "is_active"
+            }
+
+            query_filter = {filter_dict[key]: value for key, value in data.items() if
+                            key in filter_dict and value is not None}
+            currencies = Currency.objects.filter(**query_filter)
+
+            order_by_dict = {
+                "currency_name": "currency_name",
+                "currency_code": "currency_code",
+                "created_on": "created_on",
+                "updated_on": "updated_on"
+            }
+
+            query_order_by = order_by_dict.get(order_by)
+            if order_type == "desc" and query_order_by:
+                query_order_by = f"-{query_order_by}"
+            if query_order_by:
+                currencies = currencies.order_by(query_order_by)
+
+            paginator = Paginator(currencies, page_size)
+            number_pages = paginator.num_pages
+
+            if page > number_pages and page > 1:
+                return Response({"message": "Page not found"}, status=status.HTTP_400_BAD_REQUEST)
+
+            page_obj = paginator.get_page(page)
+            results = CurrencyReadSerializer(page_obj, many=True)
+
+            return Response({'count': currencies.count(), 'results': results.data}, status=status.HTTP_200_OK)
+
+        except serializers.ValidationError as ve:
+            raise serializers.ValidationError(ve.detail)
+        except Exception as ee:
+            return Response(str(ee), status=status.HTTP_400_BAD_REQUEST)
+
+
+class CategoryFilterApi(APIView):
+    """
+    This view class is used to return category data with filter and pagination
+    """
+    permission_classes = (CozentusPermission,)
+    serializer_class = CategoryFilterSerializer
+
+    @swagger_auto_schema(request_body=CategoryFilterSerializer)
+    def post(self, request):
+        """
+        This method is used for retrieving category data with pagination and filter
+        """
+        try:
+            page_size = request.data.get("page_size", 200)
+            page = request.data.get("page", 1)
+            if page < 1 or page_size < 1:
+                return Response({"message": "page and page size should be positive integer"},
+                                status=status.HTTP_400_BAD_REQUEST)
+            category_name = request.data.get('category_name')
+            order_by = request.data.get('order_by')
+            order_type = request.data.get('order_type')
+            # Perform filtering based on the provided parameters
+            if category_name:
+                categories = Category.objects.filter(name__icontains=category_name)
+            else:
+                categories = Category.objects.all()
+
+            if order_by in ["name"]:
+                if order_type == "desc":
+                    order_by = f"-{order_by}"
+                categories = categories.order_by(order_by)
+
+            # if request.data.get("export"):
+            #     category_results = CategoryReadSerializer(categories, many=True)
+            #     return export_query_to_excel(data=category_results.data, module_name="CATEGORY_DATA")
+
+            # Create Paginator object with page_size objects per page
+            category_paginator = Paginator(categories, page_size)
+            category_number_pages = category_paginator.num_pages
+
+            if page > category_number_pages:
+                return Response({"message": "Page not found"}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Get the page object for the requested page number
+            category_page_obj = category_paginator.get_page(page)
+            category_serializer = CategoryFilterSerializer(category_page_obj, many=True)
+
+            return Response({'count': categories.count(), 'results': category_serializer.data},
+                            status=status.HTTP_200_OK)
+        except serializers.ValidationError as ve:
+            raise serializers.ValidationError(ve.detail)
+        except Exception as ee:
+            return serializers.ValidationError("Please provide valid data")
+
+
+class CategoryCreateApi(CreateAPIView):
+    """
+    This view class is used to Create a new category
+    """
+    permission_classes = (CozentusPermission,)
+    # cozentus_object_permissions = {
+    #     'GET': (permission_department_list,),
+    #     'POST': (permission_department_create,)
+    # }
+    serializer_class = CategorySerializer
+    queryset = Category.objects.all()
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+
+class CategoryUpdateApi(RetrieveUpdateDestroyAPIView):
+    """
+    This view class is used to update an existing category
+    """
+    # cozentus_object_permissions = {
+    #     'GET': (permission_department_view,),
+    #     # 'PUT': (permission_department_update,),
+    #     # 'PATCH': (permission_department_update,),
+    #     'DELETE': (permission_department_delete,)
+    #
+    # }
+    permission_classes = (CozentusPermission,)
+    serializer_class = CategorySerializer
+    queryset = Category.objects.all()
+
+    def perform_update(self, serializer):
+        serializer.save(updated_by=self.request.user, updated_on=timezone.now())
+
+    def delete(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if instance:
+            instance.delete()
+            return Response({"message": "Category deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
+        else:
+            return Response({"message": "Record not found."}, status=status.HTTP_404_NOT_FOUND)
+
+
+class DepartmentFilterApi(APIView):
+    """
+    This view class is used to return department data with filter and pagination
+    """
+    permission_classes = (CozentusPermission,)
+    serializer_class = DepartmentReadSerializer
+    cozentus_object_permissions = {
+        # 'GET': (permission_department_view,),
+        # 'PUT': (permission_department_update,),
+        # 'PATCH': (permission_department_update,),
+        # 'DELETE': (permission_department_delete,)
+
+    }
+
+    # permission_classes = (CozentusPermission,)
+
+    # @swagger_auto_schema(request_body=DepartmentFilterSerializer)
+    @extend_schema(request=DepartmentFilterSerializer, responses=DepartmentReadSerializer)
+    def post(self, request):
+
+        """
+        This method is used to make post request for pagination and filter and return the department data.
+        """
+        try:
+            order_by = request.data.pop('order_by', None)
+            order_type = request.data.pop('order_type', None)
+            page_size = request.data.get("page_size", 50)
+            page = request.data.get("page", 1)
+            is_active = request.data.get("is_active", None)
+
+            if page < 1 or page_size < 1:
+                return Response({"message": "page and page size should be positive integer"},
+                                status=status.HTTP_400_BAD_REQUEST)
+
+            serializer = DepartmentFilterSerializer(data=request.data)
+
+            serializer.is_valid(raise_exception=True)
+            data = serializer.validated_data
+
+            filter_dict = {
+                "department_name": "department_name__icontains",
+                "department_code": "department_code__icontains",
+                "department_type": "department_type",
+                "is_active": "is_active",  # Adding is_active filter
+            }
+
+            query_filter = {filter_dict[key]: value for key, value in data.items() if
+                            key in filter_dict and value is not None}
+
+            # Apply the is_active filter
+            if is_active:
+                query_filter["is_active"] = is_active
+
+            departments = Department.objects.filter(**query_filter)
+
+            order_by_dict = {
+                "department_name": "department_name",
+                "department_code": "department_code",
+                "department_type": "department_type",
+            }
+
+            query_order_by = order_by_dict.get(order_by)
+
+            if order_type == "desc" and query_order_by:
+                query_order_by = f"-{query_order_by}"
+
+            if query_order_by:
+                departments = departments.order_by(query_order_by)
+
+            paginator = Paginator(departments, page_size)
+            number_pages = paginator.num_pages
+
+            if page > number_pages and page > 1:
+                return Response({"message": "Page not found"}, status=status.HTTP_400_BAD_REQUEST)
+
+            page_obj = paginator.get_page(page)
+            results = DepartmentReadSerializer(page_obj, many=True)
+
+            return Response({'count': departments.count(), 'results': results.data}, status=status.HTTP_200_OK)
+
+        except FieldError as fe:
+            print("Error 1")
+            return Response({"message": str(fe)}, status=status.HTTP_400_BAD_REQUEST)
+
+        except serializers.ValidationError as ve:
+            print("Error 2")
+            raise serializers.ValidationError(ve.detail)
+
+        except Exception as ee:
+            print("Error 3")
+            return Response(str(ee), status=status.HTTP_400_BAD_REQUEST)
+
+
+class DepartmentCreateApi(CreateAPIView):
+    """
+    This view class is used to Create a new department
+    """
+    permission_classes = (CozentusPermission,)
+    serializer_class = DepartmentSerializer
+    queryset = Department.objects.all()
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+
+class DepartmentUpdateApi(RetrieveUpdateDestroyAPIView):
+    """
+    This view class is used to update an existing department
+    """
+    permission_classes = (CozentusPermission,)
+    serializer_class = DepartmentSerializer
+    queryset = Department.objects.all()
+
+    def perform_update(self, serializer):
+        serializer.save(updated_by=self.request.user, updated_on=timezone.now())
+
+    def delete(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if instance:
+            instance.delete()
+            return Response({"message": "Department deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
+        else:
+            return Response({"message": "Record not found."}, status=status.HTTP_404_NOT_FOUND)
+
+
+class UserDepartmentApi(ListCreateAPIView):
+    cozentus_object_permissions = {
+        # 'GET': (permission_user_department_view,),
+        # 'POST': (permission_user_department_create,)
+    }
+    permission_classes = (CozentusPermission,)
+    serializer_class = UserDepartmentSerializer
+    pagination_class = PageNumberPagination
+    queryset = UserDepartment.objects.filter(is_delete=False)
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+    def get_queryset(self):
+        department_id = self.request.query_params.get('department_id', None)
+        user_id = self.request.query_params.get('user_id', None)
+        queryset = UserDepartment.objects.filter(is_delete=False)
+        if department_id:
+            queryset = queryset.filter(department=department_id)
+        if user_id:
+            queryset = queryset.filter(user=user_id)
+        return queryset
+
+
+class StatusCreateApi(CreateAPIView):
+    """
+    This view class is used to Create a new Status
+    """
+    permission_classes = (CozentusPermission,)
+    serializer_class = StatusSerializer
+    queryset = Status.objects.all()
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+
+class StatusUpdateApi(RetrieveUpdateDestroyAPIView):
+    """
+    This view class is used to update an existing status
+    """
+    permission_classes = (CozentusPermission,)
+    serializer_class = StatusSerializer
+    queryset = Status.objects.all()
+
+    def perform_update(self, serializer):
+        serializer.save(updated_by=self.request.user, updated_at=timezone.now())
+
+    def delete(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if instance:
+            instance.delete()
+            return Response({"message": "Status deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
+        else:
+            return Response({"message": "Record not found."}, status=status.HTTP_404_NOT_FOUND)
+
+
+class StatusFilterApi(APIView):
+    """
+    This view class is used to return status data with filter and pagination
+    """
+    permission_classes = (CozentusPermission,)
+    serializer_class = StatusSerializer
+
+    # @swagger_auto_schema(request_body=StatusReadSerializer)
+    @extend_schema(request=StatusFilterSerializer, responses=StatusFilterSerializer)
+    def post(self, request):
+        """
+        This method is used for retrieving status data with pagination and filter
+        """
+        try:
+            page_size = request.data.get("page_size", 200)
+            page = request.data.get("page", 1)
+            if page < 1 or page_size < 1:
+                return Response({"message": "page and page size should be positive integer"},
+                                status=status.HTTP_400_BAD_REQUEST)
+            status_name = request.data.get('name')
+            status_code = request.data.get('status_code')
+            is_active = request.data.get('is_active', None)
+            order_by = request.data.get('order_by')
+            order_type = request.data.get('order_type')
+
+            # Perform filtering based on the provided parameters
+            queryset = Status.objects.all()
+            if status_name:
+                queryset = queryset.filter(status_name__icontains=status_name)
+            if status_code:
+                queryset = queryset.filter(status_code=status_code)
+            if is_active is not None:
+                queryset = queryset.filter(is_active=is_active)
+
+            if order_by in ["status_name", "status_code"]:
+                if order_type == "desc":
+                    order_by = f"-{order_by}"
+                queryset = queryset.order_by(order_by)
+
+            paginator = Paginator(queryset, page_size)
+            number_pages = paginator.num_pages
+            if page > number_pages:
+                return Response({"message": "Page not found"}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Get the page object for the requested page number
+            page_obj = paginator.get_page(page)
+            serializer = StatusFilterSerializer(page_obj, many=True)
+            return Response({"count": len(queryset), "results": serializer.data})
+
+        except Exception as ee:
+            return Response({"message": "Please provide valid data"}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class EmailTemplateListCreateApi(generics.ListCreateAPIView):
+    queryset = EmailTemplate.objects.all()
+    serializer_class = EmailTemplateSerializer
+    permission_classes = [CozentusPermission]
+
+    def perform_create(self, serializer):
+        serializer.save(
+            created_by=self.request.user,
+            created_on=timezone.now(),
+        )
+
+
+class EmailTemplateRetrieveUpdateDestroyApi(generics.RetrieveUpdateDestroyAPIView):
+    queryset = EmailTemplate.objects.all()
+    serializer_class = EmailTemplateSerializer
+    permission_classes = [CozentusPermission]
+
+    def perform_update(self, serializer):
+        serializer.save(
+            updated_by=self.request.user,
+            updated_on=timezone.now(),
+        )
+
+
+
+class EmailTemplateFilterApi(APIView):
+    """
+    This view class is used to return email template data with filter and pagination.
+    """
+    permission_classes = (CozentusPermission,)
+    serializer_class = EmailTemplateReadSerializer
+    cozentus_object_permissions = {
+        # 'GET': (permission_email_template_view,),
+        # 'PUT': (permission_email_template_update,),
+        # 'PATCH': (permission_email_template_update,),
+        # 'DELETE': (permission_email_template_delete,)
+    }
+
+    @extend_schema(request=EmailTemplateFilterSerializer, responses=EmailTemplateReadSerializer)
+    def post(self, request):
+        """
+        This method is used to make post request for pagination and filter and return the email template data.
+        """
+        try:
+            order_by = request.data.pop('order_by', None)
+            order_type = request.data.pop('order_type', None)
+            page_size = request.data.get("page_size", 50)
+            page = request.data.get("page", 1)
+            is_active = request.data.get("is_active", None)
+
+            if page < 1 or page_size < 1:
+                return Response({"message": "page and page size should be positive integer"},
+                                status=status.HTTP_400_BAD_REQUEST)
+
+            serializer = EmailTemplateFilterSerializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            data = serializer.validated_data
+
+            filter_dict = {
+                "template_type": "template_type__icontains",
+                "subject": "subject__icontains",
+                "is_active": "is_active",
+            }
+
+            query_filter = {filter_dict[key]: value for key, value in data.items() if
+                            key in filter_dict and value is not None}
+
+            if is_active is not None:
+                query_filter["is_active"] = is_active
+
+            email_templates = EmailTemplate.objects.filter(**query_filter)
+
+            order_by_dict = {
+                "template_type": "template_type",
+                "subject": "subject",
+            }
+
+            query_order_by = order_by_dict.get(order_by)
+
+            if order_type == "desc" and query_order_by:
+                query_order_by = f"-{query_order_by}"
+
+            if query_order_by:
+                email_templates = email_templates.order_by(query_order_by)
+
+            paginator = Paginator(email_templates, page_size)
+            number_pages = paginator.num_pages
+
+            if page > number_pages and page > 1:
+                return Response({"message": "Page not found"}, status=status.HTTP_400_BAD_REQUEST)
+
+            page_obj = paginator.get_page(page)
+            results = EmailTemplateReadSerializer(page_obj, many=True)
+
+            return Response({'count': email_templates.count(), 'results': results.data}, status=status.HTTP_200_OK)
+
+        except FieldError as fe:
+            print("Error 1")
+            return Response({"message": str(fe)}, status=status.HTTP_400_BAD_REQUEST)
+
+        except serializers.ValidationError as ve:
+            print("Error 2")
+            raise serializers.ValidationError(ve.detail)
+
+        except Exception as ee:
+            print("Error 3")
+            return Response(str(ee), status=status.HTTP_400_BAD_REQUEST)

@@ -28,7 +28,7 @@ class RoleFilterSerializer(serializers.ModelSerializer):
     role_name = serializers.CharField(max_length=100, required=False, allow_blank=True, allow_null=True)
     role_description = serializers.CharField(max_length=200, required=False, allow_blank=True, allow_null=True)
     client_id = serializers.CharField(max_length=200, required=False, allow_blank=True, allow_null=True)
-    include_privilege_data = serializers.BooleanField(default=False, required=False, allow_null=True)
+    include_privilege_data = serializers.BooleanField(default=True, required=False, allow_null=True)
     order_by = serializers.CharField(required=False, allow_blank=True, allow_null=True, write_only=True)
     order_type = serializers.CharField(required=False, allow_blank=True, allow_null=True, write_only=True)
     page = serializers.IntegerField(required=False, write_only=True, allow_null=True)
@@ -63,7 +63,7 @@ class RolePermissionFilterSerializer(serializers.ModelSerializer):
 class PermissionSerializer(serializers.ModelSerializer):
     class Meta:
         model = MasterPrivilege
-        fields = ("id", "privilege_name", "privilege_desc")
+        fields = ("id", "privilege_name", "privilege_desc", "module_id")
 
 
 # class RoleUserSerializer(serializers.ModelSerializer):
@@ -100,7 +100,7 @@ class PermissionSerializer(serializers.ModelSerializer):
 #
 #     class Meta:
 #         model = Role
-#         fields = ("id", "role_name", "role_description", "client_id", "privilege_names", "modified_on", "modified_by",
+#         fields = ("id", "role_name", "role_description", "client_id", "privilege_names", "updated_on", "updated_by",
 #                   "created_on",
 #                   "created_by")
 #
@@ -110,14 +110,23 @@ class PermissionSerializer(serializers.ModelSerializer):
 #                                     context=self.context, many=True).data
 class RoleReadSerializer(serializers.ModelSerializer):
     privilege_names = serializers.SerializerMethodField()
+    created_by = serializers.CharField(source='created_by.first_name')
+    updated_by = serializers.CharField(source='updated_by.first_name', allow_null=True)
 
     class Meta:
         model = Role
-        fields = ("id", "role_name", "role_description", "client_id", "privilege_names")
+        fields = "__all__"
 
     def get_privilege_names(self, obj):
         privileges = RolePermission.objects.filter(role=obj).select_related('privilege')
         return [privilege.privilege.privilege_name for privilege in privileges]
+
+    # def get_updated_by(self, obj):
+    #     data = User.objects.filter(id=obj.updated_by).first()
+    #     if data:
+    #         return f"{data.first_name} {data.last_name}".strip()
+    #     else:
+    #         return None
 
 
 class RoleReadWithoutPrivilegeSerializer(serializers.ModelSerializer):
@@ -127,8 +136,8 @@ class RoleReadWithoutPrivilegeSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Role
-        fields = ("id", "role_name", "role_description", "client_id", "modified_on", "modified_by", "created_on",
-                  "created_by")
+        fields = ("id", "role_name", "role_description", "client_id", "updated_on", "updated_by", "created_on",
+                  "created_by", "is_active")
 
 
 class RoleShortInfoSerializer(serializers.ModelSerializer):
@@ -148,10 +157,12 @@ class RoleSerializer(serializers.ModelSerializer):
     privilege_names = serializers.ListField(child=serializers.CharField(), write_only=True)
     role_name = serializers.CharField()
     role_description = serializers.CharField(max_length=1000, required=False, allow_null=True, allow_blank=True)
+    is_active = serializers.BooleanField(default=True, required=False)
 
     class Meta:
         model = Role
-        fields = ("id", "role_name", "role_description", "client_id", "privilege_names")
+        fields = ("id", "role_name", "role_description", "client_id", "privilege_names", "is_active")
+        read_only_fields = ["created_by"]
 
     def create(self, validate_data):
         """
@@ -162,6 +173,7 @@ class RoleSerializer(serializers.ModelSerializer):
         try:
             privilege_names = validate_data.pop("privilege_names", [])
             with transaction.atomic():
+
                 instance = Role.objects.create(role_name=validate_data.get("role_name"),
                                                role_description=validate_data.get("role_description"),
                                                client_id=validate_data.get("client_id"),
@@ -171,8 +183,8 @@ class RoleSerializer(serializers.ModelSerializer):
                     raise serializers.ValidationError("please provide valid privilege")
                 for privilege_name in privilege_names:
                     privilege = MasterPrivilege.objects.filter(privilege_name=privilege_name).first()
-                    RolePermission.objects.create(privilege=privilege, role=instance,
-                                                  created_by=validate_data.get("created_by"))
+                    RolePermission.objects.create(privilege=privilege, role=instance)
+
                 instance.save()
                 return instance
         except serializers.ValidationError as ve:
@@ -200,18 +212,18 @@ class RoleSerializer(serializers.ModelSerializer):
                     RolePermission.objects.filter(role=record).delete()
                     for privilege_name in privilege_names:
                         privilege = MasterPrivilege.objects.filter(privilege_name=privilege_name).first()
-                        RolePermission.objects.create(privilege=privilege, role=instance,
-                                                      created_by=validate_data.get("modified_by"))
+                        RolePermission.objects.create(privilege=privilege, role=instance)
                 record.role_name = validate_data.get('role_name')
                 record.role_description = validate_data.get('role_description')
                 record.client_id = validate_data.get('client_id')
-                record.modified_by = validate_data.get('modified_by')
-                record.modified_on = timezone.now().astimezone(timezone.timezone.utc)
+                # record.updated_by = validate_data.get('updated_by')
+                record.updated_on = timezone.now().astimezone(timezone.timezone.utc)
+                record.is_active = validate_data.get('is_active')
                 record.save()
                 return record
         except serializers.ValidationError as ve:
             raise serializers.ValidationError(ve.detail)
-        except Exception:
+        except Exception as e:
             raise serializers.ValidationError("Please provide Valid Role and privilege data")
 
 
@@ -227,8 +239,8 @@ class ClientPrivilegeSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ClientPrivilege
-        fields = ("id", "privilege", "client", "created_by", "created_on", "modified_by", "modified_on")
-        read_only_fields = ("created_by", "created_on", "modified_by", "modified_on")
+        fields = ("id", "privilege", "client", "created_by", "created_on", "updated_by", "updated_on")
+        read_only_fields = ("created_by", "created_on", "updated_by", "updated_on")
 
 
 class ClientPrivilegeReadSerializer(serializers.ModelSerializer):
@@ -240,7 +252,7 @@ class ClientPrivilegeReadSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ClientPrivilege
-        fields = ("id", "privilege", "client", "created_by", "created_on", "modified_by", "modified_on")
+        fields = ("id", "privilege", "client", "created_by", "created_on", "updated_by", "updated_on")
 
     def get_privilege(self, obj):
         try:
@@ -285,7 +297,7 @@ class AppConfigurationSerializer(serializers.ModelSerializer):
     class Meta:
         model = AppConfiguration
         fields = '__all__'
-        read_only_fields = ('created_by', 'created_on', 'modified_by', 'modified_on')
+        read_only_fields = ('created_by', 'created_on', 'updated_by', 'updated_on')
 
     def validate_application_name(self, value):
         # Check if an instance with the same application_name already exists

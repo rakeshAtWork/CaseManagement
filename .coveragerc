@@ -12,8 +12,6 @@ omit =
     */config.py
     */custom_authentication.py
     */conftest.py
-    */master_data_management\views.py
-    */master_data_management\serializers.py
     */case_management\graph_api.py
     */acl\export_excel.py
     */user_management\forms.py

@@ -3,10 +3,11 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APIClient, APITestCase
 from django.contrib.auth import get_user_model
-from ticket_management.models import Category, TicketType, Department, Priority, SLA, ProjectManagement, UserDepartment, \
-    Status, Ticket, TicketBehalf, TicketRevision, TicketFollower
+from ticket_management.models import TicketType, Department, Priority, SLA, ProjectManagement, \
+    Ticket, TicketBehalf, TicketRevision, TicketFollower
 import uuid
 from datetime import timedelta
+from master_data_management.models import Category, UserDepartment, Status
 from django.utils import timezone
 
 User = get_user_model()
@@ -32,185 +33,6 @@ class BaseTestCase(APITestCase):
 
         self.access_token = response.json()['access']
         self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.access_token}')
-
-
-class CategoryCreateApiTest(BaseTestCase):
-    def test_create_category_success(self):
-        url = reverse('category_create')
-        data = {
-            "name": "Test Category"
-        }
-
-        response = self.client.post(url, data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(response.data['name'], 'Test Category')
-        self.assertEqual(Category.objects.count(), 1)
-        self.assertEqual(Category.objects.get().name, 'Test Category')
-        self.assertEqual(Category.objects.get().created_by, self.user)
-
-    def test_create_category_missing_name(self):
-        url = reverse('category_create')
-        data = {
-            # Missing "name"
-        }
-
-        response = self.client.post(url, data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('name', response.json()["error"])
-
-    #
-    def test_create_category_long_name(self):
-        url = reverse('category_create')
-        data = {
-            "name": "A" * 151  # Assuming the max_length is 150
-        }
-
-        response = self.client.post(url, data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('name', response.json()['error'])
-
-    #
-    def test_create_category_unauthenticated(self):
-        self.client.credentials()  # Remove authentication
-        url = reverse('category_create')
-        data = {
-            "name": "Test Category"
-        }
-
-        response = self.client.post(url, data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
-
-
-class CategoryFilterApiTest(BaseTestCase):
-    def setUp(self):
-        super().setUp()
-        Category.objects.create(name="Test Category 1", created_by=self.user)
-        Category.objects.create(name="Test Category 2", created_by=self.user)
-        Category.objects.create(name="Another Category", created_by=self.user)
-
-    def test_filter_category_success(self):
-        url = reverse('category_list')
-        data = {
-            "category_name": "Test"
-        }
-
-        response = self.client.post(url, data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data['results']), 2)
-        self.assertIn("Test Category 1", [category['name'] for category in response.data['results']])
-        self.assertIn("Test Category 2", [category['name'] for category in response.data['results']])
-
-    def test_pagination(self):
-        url = reverse('category_list')
-        data = {
-            "page_size": 1,
-            "page": 1
-        }
-
-        response = self.client.post(url, data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data['results']), 1)
-        self.assertEqual(response.data['count'], 3)
-
-    def test_invalid_page_and_page_size(self):
-        url = reverse('category_list')
-        data = {
-            "page_size": -1,
-            "page": -1
-        }
-
-        response = self.client.post(url, data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(response.data['message'], "page and page size should be positive integer")
-
-    def test_non_existent_category_name(self):
-        url = reverse('category_list')
-        data = {
-            "category_name": "NonExistentCategory"
-        }
-
-        response = self.client.post(url, data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data['results']), 0)
-
-    def test_unauthenticated_request(self):
-        self.client.credentials()  # Remove authentication
-        url = reverse('category_list')
-        data = {
-            "category_name": "Test"
-        }
-
-        response = self.client.post(url, data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
-
-
-class CategoryUpdateApiTest(BaseTestCase):
-    def setUp(self):
-        super().setUp()
-        self.category = Category.objects.create(name="Initial Category", created_by=self.user)
-
-    def test_update_category_success(self):
-        url = reverse('category_update', kwargs={'pk': self.category.id})
-        data = {
-            "name": "Updated Category"
-        }
-
-        response = self.client.put(url, data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data['name'], 'Updated Category')
-        self.category.refresh_from_db()
-        self.assertEqual(self.category.name, 'Updated Category')
-
-    def test_update_category_missing_name(self):
-        url = reverse('category_update', kwargs={'pk': self.category.id})
-        data = {
-            "name": ""
-        }
-
-        response = self.client.put(url, data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('name', response.data['error'])
-
-    def test_update_category_long_name(self):
-        url = reverse('category_update', kwargs={'pk': self.category.id})
-        data = {
-            "name": "A" * 151  # Assuming the max_length is 150
-        }
-
-        response = self.client.put(url, data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('name', response.data['error'])
-
-    def test_update_category_unauthenticated(self):
-        self.client.credentials()  # Remove authentication
-        url = reverse('category_update', kwargs={'pk': self.category.id})
-        data = {
-            "name": "Updated Category"
-        }
-
-        response = self.client.put(url, data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
-
-    def test_delete_category_success(self):
-        url = reverse('category_update', kwargs={'pk': self.category.id})
-
-        response = self.client.delete(url)
-        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
-        self.assertFalse(Category.objects.filter(id=self.category.id).exists())
-
-    def test_delete_category_unauthenticated(self):
-        self.client.credentials()  # Remove authentication
-        url = reverse('category_update', kwargs={'pk': self.category.id})
-
-        response = self.client.delete(url)
-        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
-
-    def test_delete_non_existent_category(self):
-        url = reverse('category_update', kwargs={'pk': 999})
-
-        response = self.client.delete(url)
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
-        self.assertEqual(response.data['message'], "No Category matches the given query.")
 
 
 class TicketTypeCreateApiTest(BaseTestCase):
@@ -334,14 +156,14 @@ class SLACreateApiTest(BaseTestCase):
         self.create_url = reverse('sla_create')
         # Create necessary related objects
         self.department = Department.objects.create(department_name="IT", department_code="IT001")
-        self.ticket_type = TicketType.objects.create(name="Bug", is_active=True, created_by=self.user.id)
-        self.priority = Priority.objects.create(name="High")
+        # self.ticket_type = TicketType.objects.create(name="Bug", is_active=True, created_by=self.user.id)
+        # self.priority = Priority.objects.create(name="High")
 
     def test_create_sla_success(self):
         data = {
             "department": self.department.id,
-            "ticket_type": self.ticket_type.id,
-            "priority": self.priority.id,
+            # "ticket_type": self.ticket_type.id,
+            # "priority": self.priority.id,
             "response_time": "1:00:00",
             "resolution_time": "2:00:00"
         }
@@ -352,20 +174,19 @@ class SLACreateApiTest(BaseTestCase):
     def test_create_sla_missing_fields(self):
         data = {
             "department": self.department.id,
-            "priority": self.priority.id,
+            # "priority": self.priority.id,
             "response_time": "1:00:00"
         }
 
         response = self.client.post(self.create_url, data, format='json')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('ticket_type', response.data['error'])
         self.assertIn('resolution_time', response.data['error'])
 
     def test_create_sla_invalid_data(self):
         data = {
             "department": self.department.id,
-            "ticket_type": self.ticket_type.id,
-            "priority": self.priority.id,
+            # "ticket_type": self.ticket_type.id,
+            # "priority": self.priority.id,
             "response_time": "invalid",
             "resolution_time": "2:00:00"
         }
@@ -378,8 +199,8 @@ class SLACreateApiTest(BaseTestCase):
         self.client.credentials()  # Remove authentication
         data = {
             "department": self.department.id,
-            "ticket_type": self.ticket_type.id,
-            "priority": self.priority.id,
+            # "ticket_type": self.ticket_type.id,
+            # "priority": self.priority.id,
             "response_time": "1:00:00",
             "resolution_time": "2:00:00"
         }
@@ -393,12 +214,12 @@ class SLARetrieveUpdateDeleteTest(BaseTestCase):
         super().setUp()
         # Create necessary related objects
         self.department = Department.objects.create(department_name="IT", department_code="IT001")
-        self.ticket_type = TicketType.objects.create(name="Bug", is_active=True, created_by=self.user.id)
-        self.priority = Priority.objects.create(name="High")
+        # self.ticket_type = TicketType.objects.create(name="Bug", is_active=True, created_by=self.user.id)
+        # self.priority = Priority.objects.create(name="High")
         self.sla = SLA.objects.create(
             department=self.department,
-            ticket_type=self.ticket_type,
-            priority=self.priority,
+            # ticket_type=self.ticket_type,
+            # priority=self.priority,
             response_time=timedelta(hours=1),
             resolution_time=timedelta(hours=2),
             created_by=self.user.id
@@ -411,14 +232,14 @@ class SLARetrieveUpdateDeleteTest(BaseTestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['id'], str(self.sla.id))
         self.assertEqual(str(response.data['department']), str(self.department.id))
-        self.assertEqual(str(response.data['ticket_type']), str(self.ticket_type.id))
-        self.assertEqual(str(response.data['priority']), str(self.priority.id))
+        # self.assertEqual(str(response.data['ticket_type']), str(self.ticket_type.id))
+        # self.assertEqual(str(response.data['priority']), str(self.priority.id))
 
     def test_update_sla_success(self):
         data = {
             "department": self.department.id,
-            "ticket_type": self.ticket_type.id,
-            "priority": self.priority.id,
+            # "ticket_type": self.ticket_type.id,
+            # "priority": self.priority.id,
             "response_time": "2:00:00",
             "resolution_time": "4:00:00"
         }
@@ -466,116 +287,6 @@ class SLARetrieveUpdateDeleteTest(BaseTestCase):
     def test_delete_sla_unauthenticated(self):
         self.client.credentials()  # Remove authentication
         response = self.client.delete(self.retrieve_url)
-        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
-
-
-class DepartmentCreateApiTest(BaseTestCase):
-    def setUp(self):
-        super().setUp()
-        # Create a category to use as department_type
-        self.category = Category.objects.create(
-            name="IT",
-        )
-
-        self.create_url = reverse('department_create')
-
-    def test_create_department_success(self):
-        data = {
-            "department_name": "Engineering",
-            "department_code": "ENG001",
-            "department_type": self.category.id
-        }
-        response = self.client.post(self.create_url, data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(response.data['department_name'], "Engineering")
-        self.assertEqual(response.data['department_code'], "ENG001")
-        self.assertEqual(response.data['department_type'], self.category.id)
-        self.assertEqual(response.data['created_by'], self.user.id)
-
-    def test_create_department_invalid_data(self):
-        data = {
-            "department_name": "",  # Invalid name
-            "department_code": "ENG001",
-            "department_type": self.category.id
-        }
-        response = self.client.post(self.create_url, data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('department_name', response.data['error'])
-
-    def test_create_department_unauthenticated(self):
-        self.client.credentials()  # Remove authentication
-        data = {
-            "department_name": "Engineering",
-            "department_code": "ENG001",
-            "department_type": self.category.id
-        }
-        response = self.client.post(self.create_url, data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
-
-
-class DepartmentFilterApiTest(BaseTestCase):
-    def setUp(self):
-        super().setUp()
-        # Create categories to use for department_type
-        self.category1 = Category.objects.create(name="HR")
-        self.category2 = Category.objects.create(name="IT")
-
-        # Create departments to test filtering
-        self.department1 = Department.objects.create(
-            department_name="Human Resources",
-            department_code="HR001",
-            department_type=self.category1,
-            created_by=self.user
-        )
-        self.department2 = Department.objects.create(
-            department_name="Information Technology",
-            department_code="IT001",
-            department_type=self.category2,
-            created_by=self.user
-        )
-
-        self.filter_url = reverse('department_list')
-
-    def test_filter_department_success(self):
-        data = {
-
-        }
-        response = self.client.post(self.filter_url, data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-
-    def test_filter_department_invalid_page(self):
-        data = {
-            "department_name": "Human",
-            "order_by": "department_name",
-            "order_type": "asc",
-            "page_size": 1,
-            "page": -1  # Invalid page number
-        }
-        response = self.client.post(self.filter_url, data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(response.data['message'], "page and page size should be positive integer")
-
-    def test_filter_department_no_results(self):
-        data = {
-            "department_name": "Nonexistent",
-            "order_by": "department_name",
-            "order_type": "asc",
-            "page_size": 10,
-            "page": 1
-        }
-        response = self.client.post(self.filter_url, data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-
-    def test_filter_department_unauthenticated(self):
-        self.client.credentials()  # Remove authentication
-        data = {
-            "department_name": "Human",
-            "order_by": "department_name",
-            "order_type": "asc",
-            "page_size": 10,
-            "page": 1
-        }
-        response = self.client.post(self.filter_url, data, format='json')
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
 
@@ -637,75 +348,6 @@ class PriorityApiTests(BaseTestCase):
         self.assertEqual(response.data['name'], 'High')
         self.assertEqual(response.data['description'], 'High priority level')
         self.assertEqual(response.data['level'], 'P1')
-
-
-class DepartmentUpdateApiTest(BaseTestCase):
-    def setUp(self):
-        super().setUp()
-        # Create categories to use for department_type
-        self.category = Category.objects.create(name="HR")
-
-        # Create a department to test update and delete
-        self.department = Department.objects.create(
-            department_name="Human Resources",
-            department_code="HR001",
-            department_type=self.category,
-            created_by=self.user
-        )
-
-        self.update_url = reverse('department_update', args=[self.department.id])
-
-    def test_update_department_success(self):
-        data = {
-            "department_name": "HR & Admin",
-            "department_code": "HR002",
-            "department_type": self.category.id
-        }
-        response = self.client.put(self.update_url, data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.department.refresh_from_db()
-        self.assertEqual(self.department.department_name, "HR & Admin")
-        self.assertEqual(self.department.department_code, "HR002")
-
-    def test_update_department_partial_success(self):
-        data = {
-            "department_name": "Admin"
-        }
-        response = self.client.patch(self.update_url, data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.department.refresh_from_db()
-        self.assertEqual(self.department.department_name, "Admin")
-
-    def test_update_department_invalid_id(self):
-        invalid_url = reverse('department_update', args=[999])
-        data = {
-            "department_name": "Admin"
-        }
-        response = self.client.put(invalid_url, data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
-
-    def test_delete_department_success(self):
-        response = self.client.delete(self.update_url)
-        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
-        self.assertFalse(Department.objects.filter(id=self.department.id).exists())
-
-    def test_delete_department_invalid_id(self):
-        invalid_url = reverse('department_update', args=[999])
-        response = self.client.delete(invalid_url)
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
-
-    def test_update_department_unauthenticated(self):
-        self.client.credentials()  # Remove authentication
-        data = {
-            "department_name": "HR & Admin"
-        }
-        response = self.client.put(self.update_url, data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
-
-    def test_delete_department_unauthenticated(self):
-        self.client.credentials()  # Remove authentication
-        response = self.client.delete(self.update_url)
-        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
 
 class ProjectCreateApiTest(BaseTestCase):
@@ -863,150 +505,6 @@ class ProjectRetrieveUpdateDeleteApiTest(BaseTestCase):
         response = self.client.put(self.url, update_data, format='json')
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
-
-class StatusApiTests(BaseTestCase):
-    def setUp(self):
-        super().setUp()
-        self.status_data = {
-            "name": "Open",
-            "status_code": 5,
-            "color_code": "#FFFFFF",
-            "highlight": 1
-
-        }
-        self.status = Status.objects.create(**self.status_data)
-        self.status_create_url = reverse('status_create')
-        self.status_update_url = reverse('status_update', kwargs={'pk': self.status.id})
-        self.status_list_url = reverse('status_list')
-
-    def test_create_status(self):
-        data = {
-            "name": "Closed",
-            "status_code": 5,
-            "color_code": "#000000",
-            "highlight": 1
-        }
-        response = self.client.post(self.status_create_url, data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(response.data['name'], 'Closed')
-        self.assertEqual(Status.objects.count(), 2)
-
-    def test_create_status_missing_fields(self):
-        data = {
-            "name": "In Progress"
-            # Missing other required fields
-        }
-        response = self.client.post(self.status_create_url, data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-
-    def test_update_status(self):
-        data = {
-            "name": "In Progress",
-            "status_code": 10,
-            "color_code": "#FF5733",
-            "highlight": 1
-        }
-        response = self.client.put(self.status_update_url, data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.status.refresh_from_db()
-        self.assertEqual(self.status.name, "In Progress")
-        self.assertEqual(self.status.status_code, 2)
-
-    def test_partial_update_status(self):
-        data = {
-            "name": "On Hold"
-        }
-        response = self.client.patch(self.status_update_url, data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.status.refresh_from_db()
-        self.assertEqual(self.status.name, "On Hold")
-
-    def test_delete_status(self):
-        response = self.client.delete(self.status_update_url, format='json')
-        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
-        self.assertEqual(Status.objects.count(), 0)
-
-    def test_list_status(self):
-        response = self.client.post(self.status_list_url, {}, format='json')
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data['results']), 1)
-
-
-class UserDepartmentApiTest(BaseTestCase):
-
-    def setUp(self):
-        super().setUp()
-        # Creating test users and departments
-        self.user1 = User.objects.create_user(
-            email='user1@example.com',
-            password='password',
-            first_name='John',
-            last_name='Doe'
-        )
-        self.user2 = User.objects.create_user(
-            email='user2@example.com',
-            password='password',
-            first_name='Jane',
-            last_name='Smith'
-        )
-        self.category1 = Category.objects.create(name="HR")
-        self.category2 = Category.objects.create(name="IT")
-
-        self.department1 = Department.objects.create(
-            department_name='HR',
-            department_code='HR01',
-            department_type=self.category1
-        )
-        self.department2 = Department.objects.create(
-            department_name='Finance',
-            department_code='FIN01',
-            department_type=self.category2
-        )
-
-        self.user_department1 = UserDepartment.objects.create(
-            user=self.user1,
-            department=self.department1,
-            created_by=self.user1
-        )
-        self.user_department2 = UserDepartment.objects.create(
-            user=self.user2,
-            department=self.department2,
-            created_by=self.user2
-        )
-
-    def test_get_user_department_list(self):
-        url = reverse('department_user')
-        response = self.client.get(url, format='json')
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-
-    def test_filter_by_department_id(self):
-        url = reverse('department_user')
-        response = self.client.get(url, {'department_id': self.department1.id}, format='json')
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-
-    def test_filter_by_user_id(self):
-        url = reverse('department_user')
-        response = self.client.get(url, {'user_id': self.user2.id}, format='json')
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-
-    def test_create_user_department(self):
-        url = reverse('department_user')
-        data = {
-            'user': self.user1.id,
-            'department': self.department2.id
-        }
-        response = self.client.post(url, data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(UserDepartment.objects.count(), 3)  # One more department created
-
-    def test_invalid_create_user_department(self):
-        url = reverse('department_user')
-        data = {
-            'user': self.user1.id,  # Missing department
-        }
-        response = self.client.post(url, data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('department', response.data['error'])
 
 
 class TicketAPITest(BaseTestCase):

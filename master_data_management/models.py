@@ -1,6 +1,9 @@
 from django.contrib.auth import get_user_model
 import uuid
 from django.db import models
+from case_management.utility import StatusCodeEnum
+
+# from django.contrib.postgres.fields import ArrayField
 
 User = get_user_model()
 
@@ -13,8 +16,8 @@ class FileType(models.Model):
     file_description = models.CharField(max_length=255, null=True, blank=True)
     created_on = models.DateTimeField(auto_now_add=True)
     created_by = models.PositiveIntegerField()
-    modified_on = models.DateTimeField(null=True, blank=True)
-    modified_by = models.PositiveIntegerField(null=True)
+    updated_on = models.DateTimeField(null=True, blank=True)
+    updated_by = models.PositiveIntegerField(null=True)
     is_delete = models.BooleanField(default=False)
 
     objects = models.Manager()
@@ -38,8 +41,8 @@ class Client(models.Model):
     is_delete = models.BooleanField(default=False)
     created_on = models.DateTimeField(auto_now_add=True)
     created_by = models.PositiveIntegerField()
-    modified_on = models.DateTimeField(null=True, blank=True)
-    modified_by = models.PositiveIntegerField(null=True)
+    updated_on = models.DateTimeField(null=True, blank=True)
+    updated_by = models.PositiveIntegerField(null=True)
 
     objects = models.Manager()
 
@@ -71,8 +74,8 @@ class Vendor(models.Model):
     is_delete = models.BooleanField(default=False)
     created_on = models.DateTimeField(auto_now_add=True)
     created_by = models.PositiveIntegerField()
-    modified_on = models.DateTimeField(null=True, blank=True)
-    modified_by = models.PositiveIntegerField(null=True)
+    updated_on = models.DateTimeField(null=True, blank=True)
+    updated_by = models.PositiveIntegerField(null=True)
 
     objects = models.Manager()
 
@@ -96,8 +99,8 @@ class Customer(models.Model):
     is_delete = models.BooleanField(default=False)
     created_on = models.DateTimeField(auto_now_add=True)
     created_by = models.PositiveIntegerField()
-    modified_on = models.DateTimeField(null=True, blank=True)
-    modified_by = models.PositiveIntegerField(null=True)
+    updated_on = models.DateTimeField(null=True, blank=True)
+    updated_by = models.PositiveIntegerField(null=True)
 
     objects = models.Manager()
 
@@ -116,8 +119,8 @@ class BusinessUnit(models.Model):
     contact_number = models.CharField(max_length=15)
     created_on = models.DateTimeField(auto_now_add=True)
     created_by = models.PositiveIntegerField()
-    modified_on = models.DateTimeField(null=True, blank=True)
-    modified_by = models.PositiveIntegerField(null=True)
+    updated_on = models.DateTimeField(null=True, blank=True)
+    updated_by = models.PositiveIntegerField(null=True)
     is_delete = models.BooleanField(default=False)
     status = models.BooleanField(default=True)
 
@@ -138,8 +141,8 @@ class Application(models.Model):
     contact_number = models.CharField(max_length=20, null=True, blank=True)
     created_on = models.DateTimeField(auto_now_add=True)
     created_by = models.PositiveIntegerField()
-    modified_on = models.DateTimeField(null=True, blank=True)
-    modified_by = models.PositiveIntegerField(null=True)
+    updated_on = models.DateTimeField(null=True, blank=True)
+    updated_by = models.PositiveIntegerField(null=True)
     is_delete = models.BooleanField(default=False)
 
     objects = models.Manager()
@@ -291,3 +294,168 @@ class VendorDetails(models.Model):
 
     class Meta:
         db_table = 'VENDOR_DETAILS'
+
+
+class Country(models.Model):
+    """
+    Country details
+    """
+    country_name = models.CharField(unique=True, max_length=255)
+    country_code = models.CharField(max_length=50)
+    description = models.TextField(null=True)
+    created_by = models.PositiveIntegerField(blank=True, null=True)
+    updated_by = models.PositiveIntegerField(blank=True, null=True)
+    updated_on = models.DateTimeField(auto_now=True)
+    created_on = models.DateTimeField(auto_now_add=True)
+    is_active = models.BooleanField(default=True)
+    is_delete = models.BooleanField(default=False)
+
+    objects = models.Manager()
+
+    class Meta:
+        db_table = 'COUNTRY'
+
+
+class Currency(models.Model):
+    currency_name = models.CharField(max_length=100, unique=True)
+    currency_code = models.CharField(max_length=10, unique=True)
+    # country_code = models.CharField(max_length=10, unique=True)
+    created_by = models.PositiveIntegerField(blank=True, null=True)
+    updated_by = models.PositiveIntegerField(blank=True, null=True)
+    created_on = models.DateTimeField(auto_now_add=True)
+    updated_on = models.DateTimeField(auto_now=True)
+    is_active = models.BooleanField(default=True)
+    is_delete = models.BooleanField(default=False)
+
+    objects = models.Manager()
+
+    class Meta:
+        db_table = 'CURRENCY'
+
+
+class Category(models.Model):
+    """
+    Category Model
+    """
+    name = models.CharField(max_length=150)
+
+    created_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE,
+                                   related_name="category_created_by")
+    updated_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE,
+                                   related_name="category_updated_by")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_on = models.DateTimeField(null=True, blank=True)
+    deleted_at = models.DateTimeField(null=True, blank=True)
+
+    objects = models.Manager()
+
+    class Meta:
+        ordering = ['-created_at']
+        db_table = "CATEGORY"
+
+
+class Department(models.Model):
+    """
+    Department Model
+    """
+    department_name = models.CharField(max_length=150)
+    department_code = models.CharField(max_length=150)
+    # department_type = models.ForeignKey(Category, on_delete=models.CASCADE, related_name="categories", blank=True,
+    #                                     null=True, )
+    # department_type = models.CharField(max_length=150)
+
+    created_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE,
+                                   related_name="department_created_by")
+    updated_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE,
+                                   related_name="department_updated_by")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_on = models.DateTimeField(null=True, blank=True)
+    deleted_at = models.DateTimeField(null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    is_delete = models.BooleanField(default=False)
+
+    objects = models.Manager()
+
+    class Meta:
+        ordering = ['-created_at']
+        db_table = "DEPARTMENTS"
+
+
+class UserDepartment(models.Model):
+    """
+    User Department Model
+    """
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="user_department_user")
+    department = models.ForeignKey(Department, on_delete=models.CASCADE, related_name="user_department_department")
+    created_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE,
+                                   related_name="user_department_created_by")
+    updated_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE,
+                                   related_name="user_department_updated_by")
+    created_on = models.DateTimeField(auto_now_add=True)
+    updated_on = models.DateTimeField(null=True, blank=True)
+    is_delete = models.BooleanField(default=False)
+
+    objects = models.Manager()
+
+    class Meta:
+        ordering = ['-created_on']
+        unique_together = ('department', 'user',)
+        db_table = "USER_DEPARTMENT"
+
+
+class Status(models.Model):
+    """
+    Status Model
+    """
+    name = models.CharField(max_length=150, unique=True)
+    status_code = models.IntegerField(choices=[(tag.value[0], tag.value[1]) for tag in StatusCodeEnum],
+                                      default=StatusCodeEnum.VENDOR_CREATION_INITIATED.value[0])
+    color_name = models.CharField(max_length=200, null=True, blank=True)
+    color_code = models.CharField(max_length=150, null=True, blank=True)
+    highlight = models.IntegerField(default=0)
+    created_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE,
+                                   related_name="status_created_by")
+    updated_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE,
+                                   related_name="status_updated_by")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(null=True, blank=True)
+    deleted_at = models.DateTimeField(null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+
+    objects = models.Manager()
+
+    class Meta:
+        ordering = ['-created_at']
+        db_table = "STATUS"
+
+
+class EmailTemplate(models.Model):
+    TEMPLATE_TYPE_CHOICES = [
+        ('ACCOUNT_ACTIVE', 'Account Activ'),
+        ('WELCOME', 'Welcome Email'),
+        ('RESET_PASSWORD', 'Reset Password'),
+        ('TICKET_UPDATE', 'Ticket Update'),
+        ('STATUS_UPDATE', 'Status Update'),
+        # Add more template types as needed
+    ]
+
+    is_active = models.BooleanField(default=True)
+    template_type = models.CharField(max_length=50, choices=TEMPLATE_TYPE_CHOICES, unique=True)
+    subject = models.CharField(max_length=255)
+    email_to = models.CharField(max_length=255)
+    cc = models.TextField(blank=True, null=True)  # Storing as comma-separated string
+    bcc = models.TextField(blank=True, null=True)  # Storing as comma-separated string
+    message = models.TextField()
+    signature = models.TextField(blank=True, null=True)
+
+    created_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE,
+                                   related_name="email_template_created_by")
+    updated_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE,
+                                   related_name="email_template_updated_by")
+    created_on = models.DateTimeField(auto_now_add=True)
+    updated_on = models.DateTimeField(null=True, blank=True)
+
+    objects = models.Manager()
+
+    class Meta:
+        db_table = "EMAIL_TEMPLATE"

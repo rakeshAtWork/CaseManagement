@@ -72,4 +72,38 @@ urlpatterns = [
     path('cpp-sanction-assessment/<int:pk>/', views.CPPSanctionAssessmentModifyApi.as_view(),
          name='cpp-sanction-assessment-modify'),
 
+    # Country and Currency
+    path('v1/country/list/filter', views.CountryFilterApi.as_view(), name='country_filter'),
+    path('v1/country/create', views.CountryCreateApi.as_view(), name='country_create'),
+    path('v1/country/<int:pk>', views.CountryModifyApi.as_view(), name='country_detail'),
+
+    path('v1/currency/list/filter', views.CurrencyFilterApi.as_view(), name='currency_filter'),
+    path('v1/currency/create', views.CurrencyCreateApi.as_view(), name='currency_create'),
+    path('v1/currency/<int:pk>', views.CurrencyModifyApi.as_view(), name='currency_detail'),
+
+    # Department Type (Category) URL (tested api level 2 -  written Unit test case)
+    path('v1/category/list/filter', views.CategoryFilterApi.as_view(), name='category_list'),
+    path('v1/category', views.CategoryCreateApi.as_view(), name='category_create'),
+    path('v1/category/<int:pk>', views.CategoryUpdateApi.as_view(), name='category_update'),
+
+    # Department URL (tested api level 2 - written Unit test case)
+    path('v1/department/list/filter', views.DepartmentFilterApi.as_view(), name='department_list'),
+    path('v1/department', views.DepartmentCreateApi.as_view(), name='department_create'),
+    path('v1/department/<int:pk>', views.DepartmentUpdateApi.as_view(), name='department_update'),
+
+    # User Department URL (tested api level 2 - written Unit test case)
+    path('v1/department/user', views.UserDepartmentApi.as_view(), name='department_user'),
+
+    # Status URL (tested api level 2 - written Unit test case)
+    path('v1/status/list/filter', views.StatusFilterApi.as_view(), name='status_list'),
+    path('v1/status', views.StatusCreateApi.as_view(), name='status_create'),
+    path('v1/status/<int:pk>', views.StatusUpdateApi.as_view(), name='status_update'),
+
+    # Email Template URL
+    path('v1/email_templates', views.EmailTemplateListCreateApi.as_view(), name='email_template_list_create'),
+    path('v1/email_templates/<int:pk>', views.EmailTemplateRetrieveUpdateDestroyApi.as_view(),
+         name='email_template_detail'),
+    path('v1/email_templates/list/filter', views.EmailTemplateFilterApi.as_view(), name='email_template_list_filter'),
+
+
 ]

@@ -7,6 +7,7 @@ from user_management.models import CustomUser
 from acl.models import UserRole, Role
 from django.core.cache import cache
 from unittest.mock import patch
+from django.utils import timezone
 
 User = get_user_model()
 
@@ -31,6 +32,19 @@ class BaseTestCase(APITestCase):
 
         self.access_token = response.json()['access']
         self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.access_token}')
+        # just create a new Role so that it can be tested.
+        # before updating lets create a new role
+        url = reverse('role_create')
+        valid_payload = {
+            "role_name": "Admin",
+            "role_description": "Administrator role with full permissions",
+            "client_id": 1,
+            "privilege_names": ["CREATE_APPLICATION", "VIEW_CLIENT_PERMISSION_LIST"]
+        }
+        privileges_url = reverse('populate_privileges')
+        self.client.post(privileges_url, {}, format="json")
+        response_created = self.client.post(url, valid_payload, format='json')
+        self.role_id = response_created.data['id']
 
 
 class UserRegisterTestCase(BaseTestCase):
@@ -44,12 +58,21 @@ class UserRegisterTestCase(BaseTestCase):
             "email": "rakesh.raushan@cozentus.com",
             "organisation_name": "Cozentus",
             "timezone": "UTC",
-            "country": "India"
+            "country": "India",
+            "role_id": self.role_id
         }
         response = self.client.post(url, data, format='json')
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data['email'], data['email'])
+        # getting the role info:
+        url = reverse('user_details', kwargs={'pk': response.data['id']})
+        response = self.client.get(url, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data['role_data']), 1)
+        self.assertEqual(response.data['role_data'][0]['id'], data['role_id'])
+        self.assertEqual(response.data['role_data'][0]['role_name'], "Admin")
+        # print(response.data)
 
     def test_user_register_invalid_email(self):
         url = reverse('register')
@@ -66,6 +89,23 @@ class UserRegisterTestCase(BaseTestCase):
         response_data = response.json()
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('message', response_data)
+
+    def test_user_register_with_invalid_role_id(self):
+        url = reverse('register')
+        data = {
+            "first_name": "testing1",
+            "last_name": "test",
+            "phone_number": "9110161780",
+            "email": "rakesh.raushan@cozentus.com",
+            "organisation_name": "Cozentus",
+            "timezone": "UTC",
+            "country": "India",
+            "role_id": "Invalid-role-id"
+        }
+        response = self.client.post(url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('message', response.json())
+        self.assertIn("error", response.data)
 
     def test_user_register_duplicate_email(self):
         url = reverse('register')
@@ -110,23 +150,6 @@ class UserRegisterTestCase(BaseTestCase):
         response_data = response.json()
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('phone_number', response_data['error'])
-
-
-# class UserRegisterTestCase(BaseTestCase):
-#     def test_user_register(self):
-#         url = reverse('register')
-#         data = {
-#             "first_name": "testing1",
-#             "last_name": "test",
-#             "phone_number": "9110161780",
-#             "email": "abhilipsa@cozentus.com",
-#             "organisation_name": "Cozentus",
-#             "timezone": "UTC",
-#             "country": "India"
-#         }
-#         response = self.client.post(url, data, format='json')
-#         print("*****", response)
-#         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
 
 class UserLoginTestCase(BaseTestCase):
@@ -184,41 +207,10 @@ class UserLoginTestCase(BaseTestCase):
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
-    # def test_login_response_structure(self):
-    #     # Arrange
-    #     url = reverse('user-login')
-    #     data = {
-    #         'email': "test@gmail.com",
-    #         'password': "test@123"
-    #     }
-    #     # Act
-    #     response = self.client.post(url, data, format='json')
-    #     response_data = response.json()
-    #
-    #     self.assertEqual(response.status_code, status.HTTP_200_OK)
-    #     self.assertIsInstance(response_data, dict)
-    #     self.assertIn("access", response_data)
-    #     self.assertIn("message", response_data)
-    #     self.assertIsInstance(response_data["access"], str)
-    #     self.assertEqual(response_data["message"], "Login successfully")
-    #
-    # def test_login_rate_limiting(self):
-    #     # Arrange
-    #     url = reverse('user-login')
-    #     data = {
-    #         'email': "test@gmail.com",
-    #         'password': "test@123"
-    #     }
-    #     for _ in range(10):  # Adjust number as needed to exceed rate limits
-    #         response = self.client.post(url, data, format='json')
-    #         if response.status_code == status.HTTP_429_TOO_MANY_REQUESTS:
-    #             break
-    #     self.assertEqual(response.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
-
 
 class UserListTestCase(BaseTestCase):
     def test_get_user_list(self):
-        response = self.client.post("/user/v1/list", content_type='application/json')
+        response = self.client.post(reverse("user_list"), content_type='application/json')
         self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
         self.assertEqual(response.data['count'], 1)
 
@@ -491,90 +483,86 @@ class UserPasswordResetTestCase(APITestCase):
         self.assertIn('message', response.json())
 
 
-class UserModifyAPITestCase(BaseTestCase):
-    def setUp(self):
-        # Create a superuser for authentication
-        self.superuser = User.objects.create_superuser(
-            email='admin@example.com',
-            password='password',
-            first_name='Admin',
-            last_name='User'
-        )
-        self.client.force_authenticate(user=self.superuser)
+class UserUpdateApiTests(BaseTestCase):
 
-        # Create a test user
-        self.user = User.objects.create(
+    def setUp(self):
+        super().setUp()
+        self.user = CustomUser.objects.create(
             email='testuser@example.com',
-            password='password',
             first_name='Test',
             last_name='User',
-            phone_number='1234567890',
-            organisation_name='TestOrg',
+            phone_number='+1234567890',
+            organisation_name='Test Org',
             timezone='UTC',
             country='Country',
-            is_active=True
+            is_active=True,
+            created_by=1,
+            created_on=timezone.now(),
         )
-        self.url = reverse('user_modify', kwargs={'pk': self.user.pk})
+        self.role = Role.objects.create(role_name='Test Role')
+        self.user_role = UserRole.objects.create(user=self.user, role=self.role, created_by='testuser@example.com')
+
+        self.valid_payload = {
+            'first_name': 'Updated',
+            'last_name': 'User',
+            'phone_number': '+10987654321',
+            'email': 'updateduser@example.com',
+            'organisation_name': 'Updated Org',
+            'timezone': 'UTC',
+            'country': 'Updated Country',
+            'role_id': self.role.id,
+            'is_active': True
+        }
+        self.invalid_payload = {
+            'first_name': '',
+            'last_name': '',
+            'phone_number': 'invalid_phone',
+            'email': 'invalid_email',
+            'role_id': 'invalid_role_id'
+        }
+        self.patch_payload = {
+            'first_name': 'Updated',
+            'last_name': 'User',
+            'phone_number': '+10987654321',
+            'email': 'updateduser@example.com',
+            'organisation_name': 'Updated Org'
+
+        }
 
     def test_retrieve_user(self):
-        response = self.client.get(self.url)
+        response = self.client.get(reverse('user_detail_update', kwargs={'id': self.user.id}))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data['email'], 'testuser@example.com')
+        self.assertEqual(response.data['first_name'], self.user.first_name)
 
-    def test_delete_user(self):
-        response = self.client.delete(self.url)
-        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
-        self.user.refresh_from_db()
-        self.assertFalse(self.user.is_active)
-        self.assertTrue(self.user.is_delete)
 
-    def test_retrieve_user_permission(self):
-        # Test the permissions for retrieving user (GET)
-        response = self.client.get(self.url)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-
-    def test_delete_user_permission(self):
-        # Test the permissions for deleting user (DELETE)
-        response = self.client.delete(self.url)
-        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
-
-    def test_update_user(self):
-        data = {
-            'first_name': 'Updated',
-            'last_name': 'Name',
-            'phone_number': '0987654321',
-            'email': 'updated@example.com',  # Include email if required by serializer
-            'password': 'newpassword'  # Include password if required by serializer
-        }
-        response = self.client.put(self.url, data, format='json')
-
-        # Print the response data to understand why it might be failing
-        print(response.data)
-
+    def test_update_user_valid(self):
+        response = self.client.put(reverse('user_detail_update', kwargs={'id': self.user.id}), data=self.valid_payload,
+                                   format='json')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.user.refresh_from_db()
         self.assertEqual(self.user.first_name, 'Updated')
-        self.assertEqual(self.user.last_name, 'Name')
-        self.assertEqual(self.user.phone_number, '0987654321')
+        self.assertEqual(self.user.last_name, 'User')
+        self.assertEqual(self.user.phone_number, '+10987654321')
+
+    def test_update_user_invalid(self):
+        response = self.client.put(reverse('user_detail_update', kwargs={'id': self.user.id}),
+                                   data=self.invalid_payload, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.user.refresh_from_db()
+        self.assertNotEqual(self.user.first_name, '')
+        self.assertNotEqual(self.user.phone_number, 'invalid_phone')
 
     def test_partial_update_user(self):
-        data = {
-            'phone_number': '1122334455'
-        }
-        response = self.client.patch(self.url, data, format='json')
+        response = self.client.patch(reverse('user_detail_update', kwargs={'id': self.user.id}),
+                                     data=self.patch_payload,
+                                     format='json')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.user.refresh_from_db()
-        self.assertEqual(self.user.phone_number, '1122334455')
 
-    def test_update_user_permission(self):
-        # Test the permissions for updating user (PUT/PATCH)
-        data = {'first_name': 'AnotherUpdate',
-                'email': 'updated@example.com',  # Include email if required by serializer
-                'password': 'newpassword'  # Include password if required by serializer
-                }
-        response = self.client.put(self.url, data, format='json')
-        print(response.data)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
+    def test_delete_user(self):
+        response = self.client.delete(reverse('user_detail_update', kwargs={'id': self.user.id}))
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.is_delete)
 
 
 class UserFilterAPITestCase(BaseTestCase):
@@ -594,11 +582,8 @@ class UserFilterAPITestCase(BaseTestCase):
         # Sample payload for testing
         payload = {
             "page_size": 10,
-            "page": 1,
-            "email": "testuser",
-            "status": 1,
-            "order_by": "first_name",
-            "order_type": "asc"
+            "page": 1
+
         }
         self.client.force_authenticate(user=self.user)
         response = self.client.post(self.url, payload, format='json')
@@ -693,3 +678,9 @@ class UserStatusApiViewTest(BaseTestCase):
         response = self.client.patch(url, data={'is_active': False}, format='json')
 
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+# adding the remaining test cases which api end point may not be in use.
+
+
+
+

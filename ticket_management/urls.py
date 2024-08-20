@@ -9,27 +9,9 @@ urlpatterns = [
     path('v1/type/list/filter', views.TicketTypeFilterApi.as_view(), name='ticket_type_list'),
 
     # SLA URL
-    path('v1/sla', views.SLACreate.as_view(), name='sla_create'),
+    path('v1/sla/create', views.SLACreateApi.as_view(), name='sla_create'),
     path('v1/sla/list/filter', views.SLAFilterApi.as_view(), name='sla_list'),
     path('v1/sla/<str:pk>', views.SLARetrieveUpdateDelete.as_view(), name='sla_update'),
-
-    # Department URL (tested api level 2 - written Unit test case)
-    path('v1/department/list/filter', views.DepartmentFilterApi.as_view(), name='department_list'),
-    path('v1/department', views.DepartmentCreateApi.as_view(), name='department_create'),
-    path('v1/department/<int:pk>', views.DepartmentUpdateApi.as_view(), name='department_update'),
-
-    # User Department URL (tested api level 2 - written Unit test case)
-    path('v1/department/user', views.UserDepartmentApi.as_view(), name='department_user'),
-
-    # Status URL (tested api level 2 - written Unit test case)
-    path('v1/status/list/filter', views.StatusFilterApi.as_view(), name='status_list'),
-    path('v1/status', views.StatusCreateApi.as_view(), name='status_create'),
-    path('v1/status/<int:pk>', views.StatusUpdateApi.as_view(), name='status_update'),
-
-    # Category URL (tested api level 2 -  written Unit test case)
-    path('v1/category/list/filter', views.CategoryFilterApi.as_view(), name='category_list'),
-    path('v1/category', views.CategoryCreateApi.as_view(), name='category_create'),
-    path('v1/category/<int:pk>', views.CategoryUpdateApi.as_view(), name='category_update'),
 
     # Projects URL (tested api level 2 - written Unit test case)
     path('v1/project', views.ProjectCreateApi.as_view(), name='project_create'),

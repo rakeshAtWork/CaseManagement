@@ -1,157 +1,12 @@
 from rest_framework import serializers
-from .models import Department, Status, Category, ProjectManagement, TicketType, TicketRevision, TicketFollower, \
-    Ticket, TicketBehalf, UserDepartment, Priority, SLA
+
+from master_data_management.models import Department
+from .models import ProjectManagement, TicketType, TicketRevision, TicketFollower, \
+    Ticket, TicketBehalf, Priority, SLA
 from django.contrib.auth import get_user_model
+from master_data_management.serializers import DepartmentSerializer
 
 User = get_user_model()
-
-
-class DepartmentSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Department
-        fields = "__all__"
-        read_only_fields = ('created_by', 'updated_by', 'is_delete')
-
-
-class DepartmentReadSerializer(serializers.ModelSerializer):
-    # id = serializers.SerializerMethodField(source='id')
-    class Meta:
-        model = Department
-        fields = ('id', 'department_name', 'department_type')
-        read_only_fields = ('created_by', 'updated_by', 'created_at', 'updated_at', 'is_active', 'is_delete')
-
-
-class DepartmentFilterSerializer(serializers.ModelSerializer):
-    """
-    This serializer is used for department filter
-    """
-    name = serializers.CharField(source='department_name', required=False, allow_blank=True, allow_null=True)
-    order_by = serializers.CharField(required=False, allow_blank=True, allow_null=True, write_only=True)
-    order_type = serializers.CharField(required=False, allow_blank=True, allow_null=True, write_only=True)
-    page = serializers.IntegerField(required=False, write_only=True, allow_null=True)
-    page_size = serializers.IntegerField(required=False, write_only=True, allow_null=True)
-
-    # export = serializers.BooleanField(required=False, allow_null=True, default=False)
-
-    class Meta:
-        model = Department
-        fields = ('name', 'order_by', 'order_type', 'page', 'page_size', 'department_type')
-        # read_only_fields = ('department_code','department_name')
-
-
-class StatusSerializer(serializers.ModelSerializer):
-    """
-        This serializer is used for create and update the status
-        """
-
-    class Meta:
-        model = Status
-        fields = '__all__'
-        read_only_fields = ('created_by', 'updated_by', 'created_at', 'updated_at', 'deleted_at')
-
-
-class StatusFilterSerializer(serializers.ModelSerializer):
-    """
-    This serializer is used for status filter
-    """
-    # name = serializers.CharField(max_length=100, required=False, allow_blank=True, allow_null=True)
-    order_by = serializers.CharField(required=False, allow_blank=True, allow_null=True, write_only=True)
-    order_type = serializers.CharField(required=False, allow_blank=True, allow_null=True, write_only=True)
-    page = serializers.IntegerField(required=False, write_only=True, allow_null=True)
-    page_size = serializers.IntegerField(required=False, write_only=True, allow_null=True)
-
-    # export = serializers.BooleanField(required=False, allow_null=True, default=False)
-
-    class Meta:
-        model = Status
-        fields = '__all__'
-
-
-class StatusReadSerializer(serializers.ModelSerializer):
-    """
-    This serializer is used for response data of Status
-    """
-    created_by = serializers.SerializerMethodField(source='get_created_by', read_only=True)
-    updated_by = serializers.SerializerMethodField(source='get_modified_by', read_only=True)
-
-    class Meta:
-        model = Status
-        fields = (
-            "id", "name", "status_code", "color_code", "highlight", "updated_at", "updated_by",
-            "created_at", "created_by")
-
-    def get_updated_by(self, obj):
-        data = User.objects.filter(id=obj.updated_by).first()
-        if data:
-            return f"{data.first_name} {data.last_name}".strip()
-        else:
-            return None
-
-    def get_created_by(self, obj):
-        data = User.objects.filter(id=obj.created_by).first()
-        if data:
-            return f"{data.first_name} {data.last_name}".strip()
-        else:
-            return None
-
-
-class CategoryReadSerializer(serializers.ModelSerializer):
-    """
-    This serializer is used for response data of Category
-    """
-    created_by = serializers.SerializerMethodField(source='get_created_by', read_only=True)
-    updated_by = serializers.SerializerMethodField(source='get_modified_by', read_only=True)
-
-    class Meta:
-        model = Category
-        fields = ("id", "name", "updated_at", "updated_by", "created_at",
-                  "created_by")
-
-    def get_updated_by(self, obj):
-        data = User.objects.filter(id=obj.updated_by).first()
-        if data:
-            return f"{data.first_name} {data.last_name}".strip()
-        else:
-            return None
-
-    def get_created_by(self, obj):
-        data = User.objects.filter(id=obj.created_by).first()
-        if data:
-            return f"{data.first_name} {data.last_name}".strip()
-        else:
-            return None
-
-
-class CategorySerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Category
-        fields = ("id", "name", "updated_at", "updated_by", "created_at",
-                  "created_by")
-        read_only_fields = ('created_by', 'updated_by', 'created_at', 'updated_at', 'deleted_at')
-
-
-class CategoryFilterSerializer(serializers.ModelSerializer):
-    """
-    This serializer is used for category filter
-    """
-    name = serializers.CharField(max_length=100, required=False, allow_blank=True, allow_null=True)
-    order_by = serializers.CharField(required=False, allow_blank=True, allow_null=True, write_only=True)
-    order_type = serializers.CharField(required=False, allow_blank=True, allow_null=True, write_only=True)
-    page = serializers.IntegerField(required=False, write_only=True, allow_null=True)
-    page_size = serializers.IntegerField(required=False, write_only=True, allow_null=True)
-
-    # export = serializers.BooleanField(required=False, allow_null=True, default=False)
-
-    class Meta:
-        model = Category
-        fields = ('id', 'name', 'order_by', 'order_type', 'page', 'page_size')
-
-
-class UserDepartmentSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = UserDepartment
-        fields = "__all__"
-        read_only_fields = ('created_by', 'updated_by', 'is_delete')
 
 
 class ProjectManagementSerializer(serializers.ModelSerializer):
@@ -261,12 +116,12 @@ class TicketFollowerSerializer(serializers.ModelSerializer):
         read_only_fields = ('created_by', 'created_at', 'updated_by', 'updated_at', 'deleted_at')
 
 
-class TicketFollowerSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = TicketFollower
-        fields = (
-            'id', 'ticket_id', 'follower_id', 'created_by', 'created_at', 'updated_by', 'updated_at', 'deleted_at')
-        read_only_fields = ('created_by', 'created_at', 'updated_by', 'updated_at', 'deleted_at')
+# class TicketFollowerSerializer(serializers.ModelSerializer):
+#     class Meta:
+#         model = TicketFollower
+#         fields = (
+#             'id', 'ticket_id', 'follower_id', 'created_by', 'created_at', 'updated_by', 'updated_at', 'deleted_at')
+#         read_only_fields = ('created_by', 'created_at', 'updated_by', 'updated_at', 'deleted_at')
 
 
 class TicketFollowerUpdateSerializer(serializers.ModelSerializer):
@@ -417,24 +272,25 @@ class TicketTypeReadSerializer(serializers.ModelSerializer):
 class SLASerializer(serializers.ModelSerializer):
     class Meta:
         model = SLA
-        fields = "__all__"
+        fields = ['id', 'department', 'response_time', 'resolution_time']
         read_only_fields = ('created_by', 'updated_by', 'created_at', 'updated_at', "is_delete", "deleted_at")
 
     def create(self, validated_data):
-        # Custom create method if needed
-        return super().create(validated_data)
+        return SLA.objects.create(**validated_data)
 
 
 class SLAUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = SLA
         fields = '__all__'
+        read_only_fields = ('created_by', 'updated_by', 'created_at', 'updated_at', "is_delete", "deleted_at")
 
 
 class SLAFilterSerializer(serializers.ModelSerializer):
     department = serializers.IntegerField(required=False, allow_null=True)
-    ticket_type = serializers.IntegerField(required=False, allow_null=True)
-    priority = serializers.IntegerField(required=False, allow_null=True)
+    department_name = serializers.CharField(required=False, allow_null=True)
+    # ticket_type = serializers.IntegerField(required=False, allow_null=True)
+    # priority = serializers.IntegerField(required=False, allow_null=True)
     is_delete = serializers.BooleanField(required=False, allow_null=True)
     page = serializers.IntegerField(required=False, write_only=True, allow_null=True)
     page_size = serializers.IntegerField(required=False, write_only=True, allow_null=True)
@@ -443,4 +299,41 @@ class SLAFilterSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = SLA
-        fields = ('department', 'ticket_type', 'priority', 'is_delete', 'page', 'page_size', 'order_by', 'order_type')
+        fields = ('department', 'department_name','is_delete', 'page', 'page_size', 'order_by', 'order_type')
+
+
+class SLAReadSerializer(serializers.ModelSerializer):
+    # department = serializers.CharField(source='department.department_name')
+    department_details = serializers.SerializerMethodField(source='get_department_details', read_only=True)
+    # ticket_type_details = serializers.SerializerMethodField(source='get_ticket_type_details', read_only=True)
+    # priority_details = serializers.SerializerMethodField(source='get_priority_details', read_only=True)
+    # ticket_type = serializers.CharField(source='ticket_type.name')
+    # priority = serializers.CharField(source='priority.name')
+    created_by = serializers.SerializerMethodField(source='get_created_by', read_only=True)
+    updated_by = serializers.SerializerMethodField(source='get_updated_by', read_only=True)
+
+    def get_department_details(self, obj):
+        try:
+            department = Department.objects.get(id=obj.department_id)
+            return DepartmentSerializer(department).data
+        except Department.DoesNotExist:
+            return None
+
+    def get_updated_by(self, obj):
+        data = User.objects.filter(id=obj.updated_by).first()
+        if data:
+            return f"{data.first_name} {data.last_name}".strip()
+        else:
+            return None
+
+    def get_created_by(self, obj):
+        data = User.objects.filter(id=obj.created_by).first()
+        if data:
+            return f"{data.first_name} {data.last_name}".strip()
+        else:
+            return None
+
+    class Meta:
+        model = SLA
+        fields = "__all__"
+        read_only_fields = ('updated_at', 'updated_by', 'created_at', 'created_by', 'is_delete')

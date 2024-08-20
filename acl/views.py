@@ -37,8 +37,10 @@ class RoleFilterApi(APIView):
     permission_classes = (CozentusPermission,)
     serializer_class = RoleReadSerializer
 
-    @swagger_auto_schema(request_body=RoleFilterSerializer)
+    # @swagger_auto_schema(request_body=RoleFilterSerializer)
+    @extend_schema(request=RoleFilterSerializer)
     def post(self, request):
+
         """
         This method is used to make post request for pagination and filter and return the role data.
         """
@@ -108,7 +110,7 @@ class RoleCreateApi(CreateAPIView):
     queryset = Role.objects.all()
 
     def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user.id)
+        serializer.save(created_by=self.request.user)
 
 
 class RoleUpdateApi(RetrieveUpdateDestroyAPIView):
@@ -126,7 +128,7 @@ class RoleUpdateApi(RetrieveUpdateDestroyAPIView):
     queryset = Role.objects.all()
 
     def perform_update(self, serializer):
-        serializer.save(modified_by=self.request.user.id)
+        serializer.save(updated_by=self.request.user)
 
     def delete(self, request, *args, **kwargs):
         instance = self.get_object()
@@ -142,7 +144,7 @@ class RoleUpdateApi(RetrieveUpdateDestroyAPIView):
             return Response({"message": "Record not found."}, status=status.HTTP_404_NOT_FOUND)
 
 
-class RolePermissionFilterApi(APIView):
+class PermissionFilterApi(APIView):
     """
     This view class is used to return role permission data with filter and pagination
     """
@@ -152,7 +154,8 @@ class RolePermissionFilterApi(APIView):
     permission_classes = (CozentusPermission,)
     serializer_class = RolePermissionFilterSerializer
 
-    @swagger_auto_schema(request_body=RolePermissionFilterSerializer)
+    # @swagger_auto_schema(request_body=RolePermissionFilterSerializer)
+    @extend_schema(request=RolePermissionFilterSerializer)
     def post(self, request):
         """
         This method is used for retrieving role permission data with pagination and filter
@@ -195,9 +198,12 @@ class RolePermissionFilterApi(APIView):
             serializer = PermissionSerializer(page_obj, many=True)  # RolePermissionSerializer(privileges, many=True)
             return Response({"count": len(queryset), "results": serializer.data})
         except serializers.ValidationError as ve:
-            raise serializers.ValidationError(ve.detail)
+            return Response({"error": ve.detail}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as ee:
-            return serializers.ValidationError("Please provide valid data")
+            # Log the exception (optional)
+            # logger.error(f"Unexpected error: {str(ee)}")
+            return Response({"error": "An unexpected error occurred. Please check your payload."},
+                            status=status.HTTP_400_BAD_REQUEST)
 
 
 class RoleUserCreateAPI(CreateAPIView):
@@ -276,8 +282,8 @@ class ClientPrivilegeModifyApi(RetrieveUpdateDestroyAPIView):
     queryset = ClientPrivilege.objects.all()
 
     def perform_update(self, serializer):
-        serializer.save(modified_by=self.request.user.id,
-                        modified_on=timezone.now().astimezone(timezone.timezone.utc))
+        serializer.save(updated_by=self.request.user.id,
+                        updated_on=timezone.now().astimezone(timezone.timezone.utc))
 
 
 class ClientPrivilegeFilterApi(APIView):
@@ -310,7 +316,7 @@ class ClientPrivilegeFilterApi(APIView):
             filter_dict = {
                 "privilege": "privilege", "client": "client",
                 "created_on": "created_on", "created_by": "created_by",
-                "modified_on": "modified_on", "modified_by": "modified_by"
+                "updated_on": "updated_on", "updated_by": "updated_by"
             }
             query_dict = {filter_dict.get(key, None): value for key, value in data.items() if
                           value or isinstance(value, (int, bool))}
@@ -323,7 +329,7 @@ class ClientPrivilegeFilterApi(APIView):
             order_dict = {
                 "privilege": "privilege", "client": "client",
                 "created_on": "created_on", "created_by": "created_by",
-                "modified_on": "modified_on", "modified_by": "modified_by"
+                "updated_on": "updated_on", "updated_by": "updated_by"
             }
             query_filter = order_dict.get(order_by, None)
             if query_filter:
@@ -403,8 +409,8 @@ class AppConfigurationRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestro
     permission_classes = [CozentusPermission]
 
     def perform_update(self, serializer):
-        # Set modified_by and modified_on automatically
+        # Set updated_by and updated_on automatically
         serializer.save(
-            modified_by=self.request.user.id,
-            modified_on=timezone.now()
+            updated_by=self.request.user.id,
+            updated_on=timezone.now()
         )

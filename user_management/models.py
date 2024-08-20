@@ -62,8 +62,8 @@ class CustomUser(AbstractBaseUser):
     last_login = models.DateTimeField(null=True, blank=True)
     created_on = models.DateTimeField(auto_now_add=True, )
     created_by = models.IntegerField(null=True)
-    modified_on = models.DateTimeField(null=True)
-    modified_by = models.IntegerField(null=True)
+    updated_on = models.DateTimeField(null=True)
+    updated_by = models.IntegerField(null=True)
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['password']
 
@@ -101,8 +101,8 @@ class TokenModule(models.Model):
     primary_token = models.CharField(max_length=120, null=True, blank=True)
     created_on = models.DateTimeField(auto_now_add=True, )
     created_by = models.IntegerField(null=True)
-    modified_on = models.DateTimeField(null=True)
-    modified_by = models.IntegerField(null=True)
+    updated_on = models.DateTimeField(null=True)
+    updated_by = models.IntegerField(null=True)
 
     objects = models.Manager()
 
