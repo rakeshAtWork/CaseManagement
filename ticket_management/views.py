@@ -1,17 +1,14 @@
 from django.core.exceptions import FieldError
-from django.utils.decorators import method_decorator
-from drf_yasg import openapi
-from rest_framework import generics
+
 from rest_framework.pagination import PageNumberPagination
 
-from .models import Department, ProjectManagement, TicketType, TicketFollower, TicketRevision, \
-    Ticket, TicketBehalf, SLA
-from .permissions import permission_user_department_create, \
-    permission_user_department_view, permission_user_department_edit, permission_user_department_delete, \
-    permission_priority_edit, permission_priority_delete, permission_priority_create, permission_priority_view, \
+from .models import TicketBehalf, SLA
+
+from .permissions import \
+    permission_priority_edit, permission_priority_delete, \
     permission_sla_edit, permission_sla_view, permission_sla_create, permission_ticket_type_create
-from rest_framework import generics
-from .models import Department, ProjectManagement, TicketType, TicketFollower, TicketRevision, \
+
+from .models import ProjectManagement, TicketType, TicketFollower, TicketRevision, \
     Ticket, Priority
 from .serializers import \
  \
@@ -19,7 +16,7 @@ from .serializers import \
     TicketTypeSerializer, TicketTypeUpdateSerializer, \
     TicketRevisionSerializer, TicketFollowerSerializer, TicketFollowerFilterSerializer, TicketFollowerUpdateSerializer, \
     TicketRevisionFilterSerializer, TicketRevisionUpdateSerializer, TicketSerializer, TicketUpdateSerializer, \
-    TicketFilterSerializer, TicketFilterSerializer, TicketBehalfFilterSerializer, TicketBehalfSerializer, \
+    TicketFilterSerializer, TicketBehalfFilterSerializer, TicketBehalfSerializer, \
     TicketBehalfUpdateSerializer, \
     PrioritySerializer, \
     TicketTypeReadSerializer, TicketTypeFilterSerializer, SLASerializer, SLAUpdateSerializer, SLAFilterSerializer, \
@@ -29,7 +26,6 @@ from django.core.paginator import Paginator
 from django.utils import timezone
 from drf_yasg.utils import swagger_auto_schema
 from rest_framework import generics, status
-from rest_framework.generics import CreateAPIView, RetrieveUpdateDestroyAPIView
 from rest_framework.generics import CreateAPIView, RetrieveUpdateDestroyAPIView, ListCreateAPIView
 from rest_framework.response import Response
 from rest_framework.views import APIView

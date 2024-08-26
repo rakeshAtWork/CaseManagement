@@ -10,7 +10,6 @@ from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
 from case_management.utility import get_random_string
 from acl.export_excel import export_query_to_excel
-from case_management.utility import generate_token
 from .permissions import *
 from acl.privilege import CozentusPermission
 from django.utils import timezone

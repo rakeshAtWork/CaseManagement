@@ -4,7 +4,7 @@ from acl.classes import PermissionNamespace
 
 namespace = PermissionNamespace("Ticket Permissions")
 
-#UserDepartment
+# UserDepartment
 permission_user_department_create = namespace.add_permission(
     privilege_desc=_('New User Department!'), privilege_name='CREATE_USER_DEPARTMENT',
     module_id=220
@@ -25,7 +25,7 @@ permission_user_department_view = namespace.add_permission(
     privilege_desc=_('View User Department Edit!'), privilege_name='VIEW_USER_DEPARTMENT',
     module_id=220
 )
-#TicketManagement
+# TicketManagement
 # TicketType
 permission_ticket_type_create = namespace.add_permission(
     privilege_desc=_('Create Ticket Type'), privilege_name='CREATE_TICKET_TYPE',

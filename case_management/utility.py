@@ -1,13 +1,16 @@
 import random
+
 from rest_framework.pagination import PageNumberPagination
 from decouple import config
 from datetime import datetime, timedelta
 import jwt
 import base64
-from django.conf import settings
+
 from django.core.mail import EmailMultiAlternatives
 from django.conf import settings
 from enum import Enum
+
+from django.apps import apps
 
 
 class BaseEnum(Enum):
@@ -36,6 +39,52 @@ class StatusCodeEnum(BaseEnum):
     PENDING_REQUESTER = (85, "PENDING REQUESTER")
     MANUAL_UPDATE = (90, "MANUAL UPDATE")
     PENDING_LOB_SYSTEM_UPDATE = (95, "PENDING LOB SYSTEM UPDATE")
+
+
+class ModuleEnum(BaseEnum):
+    FILE_TYPE = (10, "FILE_TYPE")
+    CLIENT_PERMISSION = (20, "CLIENT_PERMISSION")
+    VENDOR = (30, "VENDOR")
+    BUSINESS_UNIT = (40, "BUSINESS_UNIT")
+    USER = (50, "USER")
+    USER_ROLE = (120, "USER_ROLE")
+    ROLE_PRIVILEGES = (140, "ROLE_PRIVILEGES")
+    DEPARTMENT_CATEGORY = (160, "DEPARTMENT_CATEGORY")
+    PROJECT = (170, "PROJECT")
+    DEPARTMENTS = (220, "DEPARTMENTS")
+    SLA = (230, "SLA")
+    CUSTOMER = (240, "CUSTOMER")
+    PRIORITY = (250, "PRIORITY")
+    CURRENCY = (260, "CURRENCY")
+    EMAIL_TEMPLATE = (270, "EMAIL_TEMPLATE")
+    STATUS = (280, "STATUS")
+    TICKET = (290, "TICKET")
+    COUNTRY = (300, "COUNTRY")
+    LINE_OF_BUSINESS = (305, "LINE_OF_BUSINESS")
+
+    @classmethod
+    def get_module_id_by_name(cls, module_name):
+        """
+        Retrieve the module_id by providing the module_name.
+        :param module_name: The name of the module as a string.
+        :return: The corresponding module_id or None if not found.
+        """
+        for module in cls:
+            if module.value[1] == module_name.upper():
+                return module.value[0]
+        return None
+
+    @classmethod
+    def get_module_name_by_id(cls, module_id):
+        """
+        Retrieve the module_name by providing the module_id.
+        :param module_id: The ID of the module.
+        :return: The corresponding module_name or None if not found.
+        """
+        for module in cls:
+            if module.value[0] == module_id:
+                return module.value[1]
+        return None
 
 
 def decode_base64(base64_bytes):
@@ -163,3 +212,100 @@ def email_send(user_mail, subject, message):
                     <table width="100%" cellpadding="0" cellspacing="0"><tr><td data-color="text" data-link-color="link text color" data-link-style="text-decoration:underline; color:#797c82;" class="aligncenter" style="font:12px/16px Arial, Helvetica, sans-serif; color:#797c82; padding:0 0 10px;">Cozentus Private Limited, 2022. &nbsp; All Rights Reserved. <a target="_blank" style="text-decoration:underline; color:#797c82;">Please Do Not Reply.</a></td></tr></table>
                     </th></tr></table></td></tr></table></td></tr></table></td></tr><tr><td style="line-height:0;"><div style="display:none; white-space:nowrap; font:15px/1px courier;">&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;</div></td></tr></table></body></html>"""
     send_html_email(user_mail, subject, email_content)
+
+
+def log_activity(instance, request, action_type, before_instance=None, after_instance=None, **kwargs):
+    """
+    Log an activity to the ActivityLog model.
+    :param request: To track the requester.
+    :param instance: The model instance that is being modified.
+    :param action_type: The type of action being logged (e.g., CREATE, UPDATE, DELETE).
+    :param before_instance: The state of the instance before the change.
+    :param after_instance: The state of the instance after the change.
+    :param kwargs: A dictionary containing additional parameters like description, ip_address, etc.
+    """
+    ActivityLog = apps.get_model('master_data_management', 'ActivityLog')
+
+    # Unpack the necessary parameters from kwargs
+    description = kwargs.get('description', '')
+    excluded_fields = {'created_at', 'updated_at', 'deleted_at', 'updated_on', 'updated_by', 'modified_on',
+                       'modified_by'}
+
+    # Handle the case of creation (before_instance is None)
+    if before_instance is None and after_instance is not None:
+        after_input = {
+            field.name: getattr(after_instance, field.name)
+            for field in after_instance._meta.fields
+            if field.name not in excluded_fields
+        }
+        ActivityLog.objects.create(
+            module_id=ModuleEnum.get_module_id_by_name(str(instance._meta.db_table)),
+            before_input='',
+            after_input=str(after_input),
+            action_type=action_type,
+            action_by=request.user.first_name,
+            table_name=str(instance._meta.db_table),
+            description=description,
+            ip_address=request.META.get('REMOTE_ADDR', ''),
+            remote_url=request.build_absolute_uri(),
+            user_agent=request.META.get('HTTP_USER_AGENT', ''),
+            created_by=request.user
+        )
+
+    # Handle the case of deletion (after_instance is None)
+    elif before_instance is not None and after_instance is None:
+        before_input = {
+            field.name: getattr(before_instance, field.name)
+            for field in before_instance._meta.fields
+            if field.name not in excluded_fields
+        }
+        ActivityLog.objects.create(
+            module_id=ModuleEnum.get_module_id_by_name(str(instance._meta.db_table)),
+            before_input=str(before_input),
+            after_input='',
+            action_type=action_type,
+            action_by=request.user.first_name,
+            table_name=str(instance._meta.db_table),
+            description=description,
+            ip_address=request.META.get('REMOTE_ADDR', ''),
+            remote_url=request.build_absolute_uri(),
+            user_agent=request.META.get('HTTP_USER_AGENT', ''),
+            created_by=request.user
+        )
+
+    # Handle the case of updates (both before_instance and after_instance are provided)
+    elif before_instance and after_instance:
+        before_input = {
+            field.name: getattr(before_instance, field.name)
+            for field in before_instance._meta.fields
+            if field.name not in excluded_fields
+        }
+        after_input = {
+            field.name: getattr(after_instance, field.name)
+            for field in after_instance._meta.fields
+            if field.name not in excluded_fields
+        }
+
+        # Identifying changed fields
+        changed_fields = {
+            field: {'before': before_input[field], 'after': after_input[field]}
+            for field in before_input
+            if before_input[field] != after_input[field]
+        }
+
+        # Log each changed field separately
+        for field_name, change in changed_fields.items():
+            ActivityLog.objects.create(
+                module_id=ModuleEnum.get_module_id_by_name(str(instance._meta.db_table)),
+                column_name=field_name,
+                before_input=str(change['before']),
+                after_input=str(change['after']),
+                action_type=action_type,
+                action_by=request.user.first_name,
+                table_name=str(instance._meta.db_table),
+                description=description,
+                ip_address=request.META.get('REMOTE_ADDR', ''),
+                remote_url=request.build_absolute_uri(),
+                user_agent=request.META.get('HTTP_USER_AGENT', ''),
+                created_by=request.user
+            )

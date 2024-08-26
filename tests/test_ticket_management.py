@@ -506,7 +506,6 @@ class ProjectRetrieveUpdateDeleteApiTest(BaseTestCase):
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
 
-
 class TicketAPITest(BaseTestCase):
 
     def setUp(self):
@@ -1204,3 +1203,119 @@ class TicketFollowerCreateAPITest(BaseTestCase):
         response = self.client.post(url, data, format='json')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
+
+class SLAFilterApiTest(BaseTestCase):
+    def setUp(self):
+        super().setUp()
+
+        # Fetch JWT token and set authorization header
+        jwt_fetch_data = {
+            'email': 'test@gmail.com',
+            'password': 'test@123'
+        }
+        url = reverse('token_obtain_pair')
+        response = self.client.post(url, jwt_fetch_data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.json())
+
+        self.access_token = response.json()['access']
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.access_token}')
+
+        # Now create the related objects
+        self.department1 = Department.objects.create(department_name="IT", department_code="IT001")
+        self.department2 = Department.objects.create(department_name="HR", department_code="HR001")
+
+        self.sla1 = SLA.objects.create(
+            department=self.department1,
+            response_time=timedelta(hours=1),
+            resolution_time=timedelta(hours=2),
+            is_active=True,
+            created_by=self.user.id  # Updated to use self.user.id
+        )
+        self.sla2 = SLA.objects.create(
+            department=self.department2,
+            response_time=timedelta(hours=2),
+            resolution_time=timedelta(hours=4),
+            is_active=False,
+            created_by=self.user.id
+        )
+        self.filter_url = reverse('sla_list')
+
+    def test_filter_sla_by_department(self):
+        data = {
+            "department": self.department1.id
+        }
+        response = self.client.post(self.filter_url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['count'], 1)
+        self.assertEqual(response.data['results'][0]['id'], str(self.sla1.id))
+
+    def test_filter_sla_by_is_active(self):
+        data = {
+            "is_active": True
+        }
+        response = self.client.post(self.filter_url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['count'], 2)
+        self.assertEqual(response.data['results'][0]['id'], str(self.sla1.id))
+
+    def test_filter_sla_with_ordering(self):
+        data = {
+            "order_by": "response_time",
+            "order_type": "desc"
+        }
+        response = self.client.post(self.filter_url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['count'], 2)
+        self.assertEqual(response.data['results'][0]['id'], str(self.sla2.id))
+        self.assertEqual(response.data['results'][1]['id'], str(self.sla1.id))
+
+    def test_filter_sla_with_pagination(self):
+        data = {
+            "page": 1,
+            "page_size": 1
+        }
+        response = self.client.post(self.filter_url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['count'], 2)
+        self.assertEqual(len(response.data['results']), 1)
+
+    def test_filter_sla_invalid_page_size(self):
+        data = {
+            "page": -1,
+            "page_size": 50
+        }
+        response = self.client.post(self.filter_url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("message", response.data)
+
+    def test_filter_sla_no_results(self):
+        data = {
+            "department_name": "Non-existent Department"
+        }
+        response = self.client.post(self.filter_url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['count'], 0)
+        self.assertEqual(len(response.data['results']), 0)
+
+    def test_filter_sla_by_response_time_range(self):
+        """Filter SLAs by a range of response times."""
+        data = {
+            "response_time_min": timedelta(hours=1).total_seconds(),
+            "response_time_max": timedelta(hours=2).total_seconds()
+        }
+        response = self.client.post(self.filter_url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['count'], 2)
+        sla_ids = {sla['id'] for sla in response.data['results']}
+        self.assertIn(str(self.sla1.id), sla_ids)
+        self.assertIn(str(self.sla2.id), sla_ids)
+
+    def test_filter_sla_invalid_department_id(self):
+        """Test filtering with an invalid department ID."""
+        data = {
+            "department": 9999  # Assuming this ID does not exist
+        }
+        response = self.client.post(self.filter_url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['count'], 0)
+        self.assertEqual(len(response.data['results']), 0)

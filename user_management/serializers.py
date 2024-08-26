@@ -10,11 +10,9 @@ from django.contrib.auth.hashers import make_password
 from case_management.utility import new_user_registration_msg, get_random_string, email_send, \
     account_activate_new_password_msg
 from acl.serializers import RoleShortInfoSerializer
-# from case_management.graph_api import send_email_graph_api
 from .models import CustomUser, TokenModule
 from acl.models import UserRole, Role, RolePermission
 from datetime import datetime, timedelta
-from django.contrib.auth import authenticate, get_user_model
 from django.core.validators import RegexValidator
 
 
@@ -69,7 +67,8 @@ class UserReadSerializer(serializers.ModelSerializer):
         return RoleShortInfoSerializer(Role.objects.filter(id__in=role), read_only=True, context=self.context,
                                        many=True).data
 
-    def get_created_by(self, obj):
+    @staticmethod
+    def get_created_by(obj):
         """
         This method retrieves the name of the user who created the object
         """
@@ -77,7 +76,8 @@ class UserReadSerializer(serializers.ModelSerializer):
             return f"{obj.first_name} {obj.last_name}"
         return None
 
-    def get_updated_by(self, obj):
+    @staticmethod
+    def get_updated_by(obj):
         """
         This method retrieves the name of the user who last modified the object
         """
@@ -109,7 +109,8 @@ class UserProfileReadSerializer(serializers.ModelSerializer):
         return RoleShortInfoSerializer(Role.objects.filter(id__in=role), read_only=True, context=self.context,
                                        many=True).data
 
-    def get_privileges(self, obj):
+    @staticmethod
+    def get_privileges(obj):
         roles = UserRole.objects.filter(user=obj).values_list("role", flat=True)
         privilege = RolePermission.objects.filter(role__in=roles).values_list("privilege__privilege_name", flat=True)
         return privilege

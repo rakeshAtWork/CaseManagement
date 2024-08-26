@@ -429,18 +429,36 @@ class Status(models.Model):
         db_table = "STATUS"
 
 
-class EmailTemplate(models.Model):
-    TEMPLATE_TYPE_CHOICES = [
-        ('ACCOUNT_ACTIVE', 'Account Activ'),
-        ('WELCOME', 'Welcome Email'),
-        ('RESET_PASSWORD', 'Reset Password'),
-        ('TICKET_UPDATE', 'Ticket Update'),
-        ('STATUS_UPDATE', 'Status Update'),
-        # Add more template types as needed
-    ]
+class EmailTemplateType(models.Model):
+    template_name = models.CharField(max_length=255, unique=True)
+    created_by = models.ForeignKey(
+        User,
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+        related_name="email_template_type_created_by"
+    )
+    created_on = models.DateTimeField(auto_now_add=True)
+    modified_by = models.ForeignKey(
+        User,
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+        related_name="email_template_type_modified_by"
+    )
+    modified_on = models.DateTimeField(auto_now=True)
 
+    objects = models.Manager()
+
+
+class EmailTemplate(models.Model):
     is_active = models.BooleanField(default=True)
-    template_type = models.CharField(max_length=50, choices=TEMPLATE_TYPE_CHOICES, unique=True)
+    template_type = models.OneToOneField(
+        EmailTemplateType,
+        on_delete=models.CASCADE,
+        related_name="email_template",
+        null=True, blank=True
+    )
     subject = models.CharField(max_length=255)
     email_to = models.CharField(max_length=255)
     cc = models.TextField(blank=True, null=True)  # Storing as comma-separated string
@@ -459,3 +477,100 @@ class EmailTemplate(models.Model):
 
     class Meta:
         db_table = "EMAIL_TEMPLATE"
+
+
+class UserStatus(models.Model):
+    """
+    UserStatus Model to keep track of the user and their current status
+    """
+    user = models.IntegerField()
+    status = models.IntegerField()
+    created_on = models.DateTimeField(auto_now_add=True)
+    created_by = models.IntegerField(null=True, blank=True)
+    modified_on = models.DateTimeField(null=True, blank=True)
+    modified_by = models.IntegerField(null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+
+    objects = models.Manager()
+
+    class Meta:
+        ordering = ['-created_on']
+        db_table = "USER_STATUS"
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'status'], name='unique_user_status')
+        ]
+
+
+class StatusField(models.Model):
+    status_code = models.IntegerField()
+    field_name = models.CharField(max_length=255)
+    created_by = models.ForeignKey(User, related_name='status_field_created', on_delete=models.SET_NULL, null=True,
+                                   blank=True)
+    created_on = models.DateTimeField(auto_now_add=True)
+    modified_by = models.ForeignKey(User, related_name='status_field_modified', on_delete=models.SET_NULL, null=True,
+                                    blank=True)
+    modified_on = models.DateTimeField(auto_now=True)
+
+    objects = models.Manager()
+
+    class Meta:
+        unique_together = ('status_code', 'field_name')
+        db_table = 'STATUS_FIELDS'
+
+
+class ActivityLog(models.Model):
+    ACTION_TYPE_CHOICES = [
+        ('UPDATE', 'Update'),
+        ('DELETE', 'Delete'),
+        ('LOGIN', 'Login'),
+        ('LOGOUT', 'Logout'),
+        ('CREATE', 'Create'),
+        # Add more actions as needed
+    ]
+
+    module_id = models.CharField(max_length=255, null=True, blank=True)
+    column_name = models.CharField(max_length=255)
+    before_input = models.TextField(null=True, blank=True)
+    after_input = models.TextField(null=True, blank=True)
+    action_type = models.CharField(max_length=20, choices=ACTION_TYPE_CHOICES)
+    action_by = models.CharField(max_length=255, null=True, blank=True)
+    action_date = models.DateTimeField(auto_now_add=True)
+    table_name = models.CharField(max_length=255)
+    description = models.TextField()
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    # module_item_id = models.CharField(max_length=255)
+    remote_url = models.URLField()
+    user_agent = models.CharField(max_length=512, null=True, blank=True)
+
+    created_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE,
+                                   related_name="activity_log_created_by")
+    updated_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE,
+                                   related_name="activity_log_updated_by")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(null=True, blank=True)
+    deleted_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = 'ACTIVITY_LOG'
+
+    def __str__(self):
+        return f"{self.module_id} - {self.action_type} by {self.created_by.first_name} on {self.action_date}"
+
+
+class LineOfBusiness(models.Model):
+    name = models.CharField(max_length=255, unique=True)
+    description = models.TextField(blank=True, null=True)
+    created_on = models.DateTimeField(auto_now_add=True)
+    created_by = models.IntegerField(null=True, blank=True)
+    updated_on = models.DateTimeField(null=True, blank=True)
+    updated_by = models.IntegerField(null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    is_delete = models.BooleanField(default=False)
+
+    objects = models.Manager()
+
+    class Meta:
+        db_table = 'LINE_OF_BUSINESS'
+
+    def __str__(self):
+        return self.name

@@ -299,7 +299,7 @@ class SLAFilterSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = SLA
-        fields = ('department', 'department_name','is_delete', 'page', 'page_size', 'order_by', 'order_type')
+        fields = ('department', 'department_name', 'is_delete', 'page', 'page_size', 'order_by', 'order_type')
 
 
 class SLAReadSerializer(serializers.ModelSerializer):

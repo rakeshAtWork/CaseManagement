@@ -1,7 +1,6 @@
-from django.contrib.auth.forms import UserCreationForm, UserChangeForm
-from django.db.models import fields
+from django.contrib.auth.forms import UserCreationForm
 from django import forms
-from .models import CustomUser                                   #UserProfile
+from .models import CustomUser
 from django.contrib.auth import get_user_model
 
 User1 = get_user_model()
@@ -23,9 +22,11 @@ class CustomUserCreationForm(UserCreationForm):
         return email
 
     def clean(self):
-        '''
-        Verify both passwords match.
-        '''
+        """
+                Verify both passwords match.
+
+        """
+
         cleaned_data = super().clean()
         password1 = cleaned_data.get("password1")
         password2 = cleaned_data.get("password2")

@@ -1,12 +1,11 @@
-from datetime import timezone
-
 from django.contrib.auth import get_user_model
 from django.core.validators import RegexValidator
 from rest_framework import serializers
 
 from .models import FileType, Client, BusinessUnit, Vendor, Application, Customer, AccountType, SupplierContactDetails, \
     D365FOSetup, CompanyInfoForValidation, CPPSanctionAssessment, VendorDetails, Currency, Country, Category, \
-    Department, UserDepartment, Status, EmailTemplate
+    Department, UserDepartment, Status, EmailTemplate, UserStatus, StatusField, ActivityLog, EmailTemplateType, \
+    LineOfBusiness
 
 User = get_user_model()
 
@@ -748,7 +747,9 @@ class DepartmentReadSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Department
-        fields = ('id', 'department_name', 'is_active', 'created_by', 'updated_by', 'created_at', 'updated_on')
+        fields = (
+            'id', 'department_name', 'department_code', 'is_active', 'created_by', 'updated_by', 'created_at',
+            'updated_on')
         read_only_fields = ('updated_on', 'is_delete')
 
     def get_updated_by(self, obj):
@@ -858,6 +859,13 @@ class StatusReadSerializer(serializers.ModelSerializer):
             return None
 
 
+class EmailTemplateTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EmailTemplateType
+        fields = '__all__'
+        read_only_fields = ['created_by', 'created_on', 'modified_by', 'modified_on']
+
+
 class EmailTemplateSerializer(serializers.ModelSerializer):
     SHORTCODES = [
         '##register_user_email##', '##user_email##', '##user_name##', '##creator_email##',
@@ -903,8 +911,8 @@ class EmailTemplateSerializer(serializers.ModelSerializer):
 
     def to_internal_value(self, data):
         data = super().to_internal_value(data)
-        data['cc'] = ','.join(data['cc']) if isinstance(data['cc'], list) else data['cc']
-        data['bcc'] = ','.join(data['bcc']) if isinstance(data['bcc'], list) else data['bcc']
+        data['cc'] = ','.join(data.get('cc', [])) if isinstance(data.get('cc'), list) else data.get('cc')
+        data['bcc'] = ','.join(data.get('bcc', [])) if isinstance(data.get('bcc'), list) else data.get('bcc')
         return data
 
 
@@ -930,15 +938,191 @@ class EmailTemplateReadSerializer(serializers.ModelSerializer):
     """
     created_by = serializers.CharField(source='created_by.first_name', read_only=True)
     updated_by = serializers.SerializerMethodField()
+    template_type = serializers.CharField(source='template_type.template_name', read_only=True)
 
     class Meta:
         model = EmailTemplate
         fields = (
-        'id', 'template_type', 'subject', 'email_to', 'cc', 'bcc', 'message', 'signature', 'is_active', 'created_by',
-        'updated_by', 'created_on', 'updated_on')
+            'id', 'template_type', 'subject', 'email_to', 'cc', 'bcc', 'message', 'signature',
+            'is_active', 'created_by', 'updated_by', 'created_on', 'updated_on'
+        )
         read_only_fields = ('created_on', 'updated_on')
 
     def get_updated_by(self, obj):
         if obj.updated_by:
             return obj.updated_by.first_name
         return None
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        representation['cc'] = instance.cc.split(',') if instance.cc else []
+        representation['bcc'] = instance.bcc.split(',') if instance.bcc else []
+        return representation
+
+
+class UserStatusSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserStatus
+        fields = '__all__'
+        read_only_fields = ('created_by', 'created_on', 'modified_by', 'modified_on')
+
+
+class StatusFieldSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = StatusField
+        fields = '__all__'
+        read_only_fields = ('created_by', 'created_on', 'modified_by', 'modified_on')
+
+    def validate(self, data):
+        status_code = data.get('status_code')
+        field_name = data.get('field_name')
+        if StatusField.objects.filter(status_code=status_code, field_name=field_name).exists():
+            raise serializers.ValidationError("The combination of status_code and field_name must be unique.")
+        return data
+
+
+class SupplierContactDetailsSerializer2(serializers.ModelSerializer):
+    class Meta:
+        model = SupplierContactDetails
+        fields = '__all__'
+
+    def validate(self, data):
+        request_user = self.context['request'].user.id
+        # This will fetch the latest Status code of the user. Based on this will check and throw error.
+        user_status = UserStatus.objects.filter(user=request_user).order_by('-created_on').first()
+
+        # Check if user status code is 5
+        print(user_status.status)
+        if int(user_status.status) != 9:
+            raise serializers.ValidationError(
+                "Supplier contact details can only be created if the user's status code is 9."
+            )
+
+        # Check if the status allows creating the requested fields
+        status_fields = StatusField.objects.filter(status_code=user_status.status)
+        allowed_fields = set(status_fields.values_list('field_name', flat=True))
+
+        for field in data.keys():
+            if field not in allowed_fields:
+                raise serializers.ValidationError(
+                    f"Field '{field}' is not allowed to create or update for the current user status."
+                )
+
+        return data
+
+    def create(self, validated_data):
+        validated_data['created_by'] = self.context['request'].user.id
+        return super().create(validated_data)
+
+
+class UserStatusFieldSerializer(serializers.Serializer):
+    user_id = serializers.IntegerField()
+    status_codes = serializers.ListField(child=serializers.IntegerField())
+    status_fields = serializers.ListField(child=serializers.ListField(
+        child=serializers.CharField()
+    ))
+
+
+class ActivityLogSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ActivityLog
+        # fields = ['id', 'module_name', 'action_type', 'action_date', 'username', 'data_changes']
+        # read_only_fields = ['id', 'action_date']
+        fields = '__all__'
+
+
+class ActivityLogReadSerializer(serializers.ModelSerializer):
+    """
+    Serializer for reading ActivityLog data.
+    """
+    created_by = serializers.SerializerMethodField(source='get_created_by', read_only=True)
+    updated_by = serializers.SerializerMethodField(source='get_updated_by', read_only=True)
+
+    class Meta:
+        model = ActivityLog
+        fields = '__all__'
+
+    def get_created_by(self, obj):
+        data = User.objects.filter(id=obj.created_by_id).first()
+        return f"{data.first_name} {data.last_name}".strip() if data else None
+
+    def get_updated_by(self, obj):
+        data = User.objects.filter(id=obj.updated_by_id).first()
+        return f"{data.first_name} {data.last_name}".strip() if data else None
+
+
+class ActivityLogFilterSerializer(serializers.ModelSerializer):
+    """
+    Serializer for filtering ActivityLog records.
+    """
+    module_id = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    action_type = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    action_by = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    table_name = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    order_by = serializers.CharField(required=False, allow_blank=True, allow_null=True, write_only=True)
+    order_type = serializers.CharField(required=False, allow_blank=True, allow_null=True, write_only=True)
+    page = serializers.IntegerField(required=False, write_only=True, allow_null=True)
+    page_size = serializers.IntegerField(required=False, write_only=True, allow_null=True)
+
+    class Meta:
+        model = ActivityLog
+        fields = (
+            'module_id', 'action_type', 'action_by', 'table_name', 'created_by', 'ip_address', 'user_agent',
+            'order_by', 'order_type', 'page', 'page_size'
+        )
+        read_only_fields = ('created_at', 'updated_at', 'deleted_at')
+
+
+class ModuleEnumSerializer(serializers.Serializer):
+    module_id = serializers.IntegerField()
+    module_name = serializers.CharField(max_length=255)
+
+
+class LineOfBusinessSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LineOfBusiness
+        fields = ['id', 'name', 'description', 'created_by', 'updated_by', 'created_on', 'updated_on', 'is_active',
+                  'is_delete']
+        read_only_fields = ('created_by', 'updated_by', 'created_on', 'updated_on', 'is_delete')
+
+    def create(self, validated_data):
+        return LineOfBusiness.objects.create(**validated_data)
+
+
+class LineOfBusinessUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LineOfBusiness
+        fields = '__all__'
+        read_only_fields = ('created_by', 'updated_by', 'created_on', 'updated_on', 'is_delete')
+
+
+class LineOfBusinessFilterSerializer(serializers.ModelSerializer):
+    name = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    is_active = serializers.BooleanField(required=False, allow_null=True)
+    is_delete = serializers.BooleanField(required=False, allow_null=True)
+    page = serializers.IntegerField(required=False, write_only=True, allow_null=True)
+    page_size = serializers.IntegerField(required=False, write_only=True, allow_null=True)
+    order_by = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    order_type = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+
+    class Meta:
+        model = LineOfBusiness
+        fields = ('name', 'is_active', 'is_delete', 'page', 'page_size', 'order_by', 'order_type')
+
+
+class LineOfBusinessReadSerializer(serializers.ModelSerializer):
+    created_by = serializers.SerializerMethodField()
+    updated_by = serializers.SerializerMethodField()
+
+    def get_created_by(self, obj):
+        data = User.objects.filter(id=obj.created_by).first()
+        return f"{data.first_name} {data.last_name}".strip() if data else None
+
+    def get_updated_by(self, obj):
+        data = User.objects.filter(id=obj.updated_by).first()
+        return f"{data.first_name} {data.last_name}".strip() if data else None
+
+    class Meta:
+        model = LineOfBusiness
+        fields = "__all__"
+        read_only_fields = ('created_on', 'updated_on', 'is_delete')

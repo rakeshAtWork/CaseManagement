@@ -1,17 +1,21 @@
+from sqlite3 import IntegrityError
+
 from django.core.exceptions import FieldError
 from django.core.paginator import Paginator
 from drf_spectacular.utils import extend_schema
 from rest_framework import generics, serializers
 from drf_yasg.utils import swagger_auto_schema
-from rest_framework.generics import RetrieveUpdateDestroyAPIView, CreateAPIView, ListCreateAPIView
+from rest_framework.generics import RetrieveUpdateDestroyAPIView, CreateAPIView, ListCreateAPIView, ListAPIView
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from acl.privilege import CozentusPermission
 from acl.export_excel import export_query_to_excel
+from case_management.utility import log_activity, ModuleEnum
 from master_data_management.models import FileType, Client, BusinessUnit, Vendor, Application, Customer, AccountType, \
     SupplierContactDetails, D365FOSetup, CompanyInfoForValidation, CPPSanctionAssessment, VendorDetails, Currency, \
-    Country, Category, Department, UserDepartment, Status, EmailTemplate
+    Country, Category, Department, UserDepartment, Status, EmailTemplate, UserStatus, StatusField, ActivityLog, \
+    EmailTemplateType, LineOfBusiness
 from master_data_management.permissions import permission_file_type_create, permission_file_type_view, \
     permission_file_type_edit, permission_file_type_delete, permission_file_type_list, permission_client_create, \
     permission_client_view, permission_client_edit, permission_client_delete, permission_client_list, \
@@ -42,7 +46,13 @@ from master_data_management.serializers import (FileTypeSerializers, FileTypeRea
                                                 DepartmentFilterSerializer, DepartmentSerializer,
                                                 UserDepartmentSerializer, StatusSerializer, StatusFilterSerializer,
                                                 EmailTemplateSerializer, EmailTemplateFilterSerializer,
-                                                EmailTemplateReadSerializer)
+                                                EmailTemplateReadSerializer, UserStatusSerializer,
+                                                SupplierContactDetailsSerializer2, StatusFieldSerializer,
+                                                UserStatusFieldSerializer, ActivityLogFilterSerializer,
+                                                ActivityLogReadSerializer, ActivityLogSerializer, ModuleEnumSerializer,
+                                                EmailTemplateTypeSerializer, LineOfBusinessReadSerializer,
+                                                LineOfBusinessFilterSerializer, LineOfBusinessUpdateSerializer,
+                                                LineOfBusinessSerializer)
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.response import Response
@@ -1048,7 +1058,16 @@ class CountryCreateApi(CreateAPIView):
     queryset = Country.objects.all()
 
     def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user.id)
+        instance = serializer.save(created_by=self.request.user.id)
+        after_instance = Department.objects.get(pk=instance.pk)
+        log_activity(
+            instance=instance,
+            request=self.request,
+            action_type='CREATE',
+            before_instance=None,
+            after_instance=after_instance,
+            description="Country Created",
+        )
 
 
 class CountryModifyApi(RetrieveUpdateDestroyAPIView):
@@ -1056,11 +1075,34 @@ class CountryModifyApi(RetrieveUpdateDestroyAPIView):
     serializer_class = CountrySerializer
 
     def perform_update(self, serializer):
+        instance = self.get_object()
+        # Save the current state of the instance
+        before_instance = Country.objects.get(pk=instance.pk)
         serializer.save(updated_by=self.request.user.id)
+        # Refresh the instance to get the updated values
+        after_instance = Country.objects.get(pk=instance.pk)
+        log_activity(
+            instance=instance,
+            request=self.request,
+            action_type='UPDATE',
+            before_instance=before_instance,
+            after_instance=after_instance,
+            description="Country Updated",
+        )
 
     def perform_destroy(self, instance):
+        before_instance = instance
         instance.is_delete = True
-        instance.save()
+        after_instance = instance.save()
+
+        log_activity(
+            instance=instance,
+            request=self.request,
+            action_type='DELETE',
+            before_instance=before_instance,
+            after_instance=after_instance,
+            description="Country Deleted",
+        )
 
 
 class CountryFilterApi(APIView):
@@ -1139,7 +1181,16 @@ class CurrencyCreateApi(CreateAPIView):
     queryset = Currency.objects.all()
 
     def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user.id)
+        instance = serializer.save(created_by=self.request.user.id)
+        after_instance = Currency.objects.get(pk=instance.pk)
+        log_activity(
+            instance=instance,
+            request=self.request,
+            action_type='CREATE',
+            before_instance=None,
+            after_instance=after_instance,
+            description="Currency Created",
+        )
 
 
 class CurrencyModifyApi(RetrieveUpdateDestroyAPIView):
@@ -1147,7 +1198,32 @@ class CurrencyModifyApi(RetrieveUpdateDestroyAPIView):
     serializer_class = CurrencySerializer
 
     def perform_update(self, serializer):
+        instance = self.get_object()
+        before_instance = Currency.objects.get(pk=instance.pk)
         serializer.save(updated_by=self.request.user.id)
+        after_instance = Currency.objects.get(pk=instance.pk)
+        log_activity(
+            instance=instance,
+            request=self.request,
+            action_type='UPDATE',
+            before_instance=before_instance,
+            after_instance=after_instance,
+            description="Currency Updated",
+        )
+
+    def perform_destroy(self, instance):
+        before_instance = instance
+        instance.is_delete = True
+        after_instance = instance.save()
+
+        log_activity(
+            instance=instance,
+            request=self.request,
+            action_type='DELETE',
+            before_instance=before_instance,
+            after_instance=after_instance,
+            description="Currency Deleted",
+        )
 
 
 class CurrencyFilterApi(APIView):
@@ -1414,7 +1490,16 @@ class DepartmentCreateApi(CreateAPIView):
     queryset = Department.objects.all()
 
     def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user)
+        instance = serializer.save(created_by=self.request.user)
+        after_instance = Department.objects.get(pk=instance.pk)
+        log_activity(
+            instance=instance,
+            request=self.request,
+            action_type='CREATE',
+            before_instance=None,
+            after_instance=after_instance,
+            description="Department Created",
+        )
 
 
 class DepartmentUpdateApi(RetrieveUpdateDestroyAPIView):
@@ -1426,11 +1511,36 @@ class DepartmentUpdateApi(RetrieveUpdateDestroyAPIView):
     queryset = Department.objects.all()
 
     def perform_update(self, serializer):
+        instance = self.get_object()
+
+        # Save the current state of the instance
+        before_instance = Department.objects.get(pk=instance.pk)
         serializer.save(updated_by=self.request.user, updated_on=timezone.now())
+
+        # Refresh the instance to get the updated values
+        after_instance = Department.objects.get(pk=instance.pk)
+        log_activity(
+            instance=instance,
+            request=self.request,
+            action_type='UPDATE',
+            before_instance=before_instance,
+            after_instance=after_instance,
+            description="Department updated",
+        )
 
     def delete(self, request, *args, **kwargs):
         instance = self.get_object()
         if instance:
+            before_instance = Department.objects.get(pk=instance.pk)
+            log_activity(
+                instance=instance,
+                request=self.request,
+                action_type='DELETE',
+                before_instance=before_instance,
+                after_instance=None,
+                description="Department Deleted",
+            )
+
             instance.delete()
             return Response({"message": "Department deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
         else:
@@ -1470,7 +1580,16 @@ class StatusCreateApi(CreateAPIView):
     queryset = Status.objects.all()
 
     def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user)
+        instance = serializer.save(created_by=self.request.user)
+        after_instance = Status.objects.get(pk=instance.pk)
+        log_activity(
+            instance=instance,
+            request=self.request,
+            action_type='CREATE',
+            before_instance=None,
+            after_instance=after_instance,
+            description="Status Created",
+        )
 
 
 class StatusUpdateApi(RetrieveUpdateDestroyAPIView):
@@ -1482,11 +1601,30 @@ class StatusUpdateApi(RetrieveUpdateDestroyAPIView):
     queryset = Status.objects.all()
 
     def perform_update(self, serializer):
+        instance = self.get_object()
+        before_instance = Status.objects.get(pk=instance.pk)
         serializer.save(updated_by=self.request.user, updated_at=timezone.now())
+        after_instance = Status.objects.get(pk=instance.pk)
+        log_activity(
+            instance=instance,
+            request=self.request,
+            action_type='UPDATE',
+            before_instance=before_instance,
+            after_instance=after_instance,
+            description="Status Updated",
+        )
 
     def delete(self, request, *args, **kwargs):
         instance = self.get_object()
         if instance:
+            log_activity(
+                instance=instance,
+                request=self.request,
+                action_type='UPDATE',
+                before_instance=instance,
+                after_instance=None,
+                description="Status Deleted",
+            )
             instance.delete()
             return Response({"message": "Status deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
         else:
@@ -1527,7 +1665,7 @@ class StatusFilterApi(APIView):
             if is_active is not None:
                 queryset = queryset.filter(is_active=is_active)
 
-            if order_by in ["status_name", "status_code"]:
+            if order_by in ["status_name", "status_code", "name"]:
                 if order_type == "desc":
                     order_by = f"-{order_by}"
                 queryset = queryset.order_by(order_by)
@@ -1544,6 +1682,30 @@ class StatusFilterApi(APIView):
 
         except Exception as ee:
             return Response({"message": "Please provide valid data"}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class EmailTemplateTypeListCreateView(generics.ListCreateAPIView):
+    queryset = EmailTemplateType.objects.all()
+    serializer_class = EmailTemplateTypeSerializer
+
+    def perform_create(self, serializer):
+        # Set the created_by field to the current user and save the instance
+        serializer.save(created_by=self.request.user)
+
+
+class EmailTemplateTypeRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = EmailTemplateType.objects.all()
+    serializer_class = EmailTemplateTypeSerializer
+
+    def perform_update(self, serializer):
+        # Set the modified_by field to the current user and save the instance
+        serializer.save(modified_by=self.request.user)
+
+    def perform_destroy(self, instance):
+        # Custom logic for deletion can be added here
+        instance.delete()
+        # Log the deletion or perform other actions if needed
+        # e.g., log deletion: logger.info(f"EmailTemplateType {instance.pk} deleted by {self.request.user}")
 
 
 class EmailTemplateListCreateApi(generics.ListCreateAPIView):
@@ -1568,7 +1730,6 @@ class EmailTemplateRetrieveUpdateDestroyApi(generics.RetrieveUpdateDestroyAPIVie
             updated_by=self.request.user,
             updated_on=timezone.now(),
         )
-
 
 
 class EmailTemplateFilterApi(APIView):
@@ -1628,8 +1789,12 @@ class EmailTemplateFilterApi(APIView):
             if order_type == "desc" and query_order_by:
                 query_order_by = f"-{query_order_by}"
 
+            # Apply ordering
             if query_order_by:
                 email_templates = email_templates.order_by(query_order_by)
+            else:
+                # Apply default ordering if no order_by is provided
+                email_templates = email_templates.order_by("template_type")
 
             paginator = Paginator(email_templates, page_size)
             number_pages = paginator.num_pages
@@ -1643,13 +1808,440 @@ class EmailTemplateFilterApi(APIView):
             return Response({'count': email_templates.count(), 'results': results.data}, status=status.HTTP_200_OK)
 
         except FieldError as fe:
-            print("Error 1")
             return Response({"message": str(fe)}, status=status.HTTP_400_BAD_REQUEST)
 
         except serializers.ValidationError as ve:
-            print("Error 2")
             raise serializers.ValidationError(ve.detail)
 
         except Exception as ee:
-            print("Error 3")
+            return Response(str(ee), status=status.HTTP_400_BAD_REQUEST)
+
+
+class UserStatusListCreate(APIView):
+    def get(self, request):
+        statuses = UserStatus.objects.all()
+        serializer = UserStatusSerializer(statuses, many=True)
+        return Response(serializer.data)
+
+    @extend_schema(request=UserStatusSerializer, responses=UserStatusSerializer)
+    def post(self, request):
+        serializer = UserStatusSerializer(data=request.data)
+        if serializer.is_valid():
+            try:
+                serializer.save(created_by=self.request.user.id)
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+            except Exception as ee:
+                return Response(
+                    {'error': 'Unique constraint violated: user and status combination must be unique.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class UserStatusDetail(APIView):
+    def get_object(self, pk):
+        try:
+            return UserStatus.objects.get(pk=pk)
+        except UserStatus.DoesNotExist:
+            return None
+
+    def get(self, request, pk):
+        status_u = self.get_object(pk)
+        if status_u is None:
+            return Response({'error': 'Not found'}, status=status.HTTP_404_NOT_FOUND)
+        serializer = UserStatusSerializer(status)
+        return Response(serializer.data)
+
+    @extend_schema(request=UserStatusSerializer, responses=UserStatusSerializer)
+    def put(self, request, pk):
+        status_u = self.get_object(pk)
+        if status_u is None:
+            return Response({'error': 'Not found'}, status=status.HTTP_404_NOT_FOUND)
+        serializer = UserStatusSerializer(status, data=request.data)
+        if serializer.is_valid():
+            try:
+                serializer.save(modified_by=self.request.user.id, modified_on=timezone.now())
+                return Response(serializer.data)
+            except IntegrityError:
+                return Response(
+                    {'error': 'Unique constraint violated: user and status combination must be unique.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    @extend_schema(request=UserStatusSerializer, responses=UserStatusSerializer)
+    def patch(self, request, pk):
+        status_u = self.get_object(pk)
+        if status_u is None:
+            return Response({'error': 'Not found'}, status=status.HTTP_404_NOT_FOUND)
+        serializer = UserStatusSerializer(status, data=request.data, partial=True)
+        if serializer.is_valid():
+            try:
+                serializer.save(modified_by=self.request.user.id, modified_on=timezone.now())
+                return Response(serializer.data)
+            except IntegrityError:
+                return Response(
+                    {'error': 'Unique constraint violated: user and status combination must be unique.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, pk):
+        status_u = self.get_object(pk)
+        if status_u is None:
+            return Response({'error': 'Not found'}, status=status.HTTP_404_NOT_FOUND)
+        status_u.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class StatusFieldListCreateAPIView(APIView):
+    def get(self, request):
+        status_fields = StatusField.objects.all()
+        serializer = StatusFieldSerializer(status_fields, many=True)
+        return Response(serializer.data)
+
+    @extend_schema(request=StatusFieldSerializer, responses=StatusFieldSerializer)
+    def post(self, request):
+        serializer = StatusFieldSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(created_by=request.user)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class StatusFieldDetailAPIView(APIView):
+    def get_object(self, pk):
+        try:
+            return StatusField.objects.get(pk=pk)
+        except StatusField.DoesNotExist:
+            return None
+
+    def get(self, request, pk):
+        status_field = self.get_object(pk)
+        if status_field is None:
+            return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+        serializer = StatusFieldSerializer(status_field)
+        return Response(serializer.data)
+
+    @extend_schema(request=StatusFieldSerializer, responses=StatusFieldSerializer)
+    def put(self, request, pk):
+        status_field = self.get_object(pk)
+        if status_field is None:
+            return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+        serializer = StatusFieldSerializer(status_field, data=request.data)
+        if serializer.is_valid():
+            serializer.save(modified_by=request.user)
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    @extend_schema(request=StatusFieldSerializer, responses=StatusFieldSerializer)
+    def patch(self, request, pk):
+        status_field = self.get_object(pk)
+        if status_field is None:
+            return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+        serializer = StatusFieldSerializer(status_field, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save(modified_by=request.user)
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, pk):
+        status_field = self.get_object(pk)
+        if status_field is None:
+            return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+        status_field.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class SupplierContactDetailsCreateView(CreateAPIView):
+    queryset = SupplierContactDetails.objects.all()
+    serializer_class = SupplierContactDetailsSerializer2
+    permission_classes = [IsAuthenticated]
+
+
+class UserStatusFieldListApiView(ListAPIView):
+    serializer_class = UserStatusFieldSerializer
+    permission_classes = [CozentusPermission]
+
+    def get_queryset(self):
+        user_statuses = UserStatus.objects.all()
+        status_fields = StatusField.objects.filter(
+            status_code__in=user_statuses.values_list('status', flat=True)
+        )
+
+        queryset = []
+        user_status_dict = {}
+
+        # Aggregate data by user_id
+        for user_status in user_statuses:
+            user_id = user_status.user
+            if user_id not in user_status_dict:
+                user_status_dict[user_id] = {
+                    "user_id": user_id,
+                    "status_codes": [],
+                    "status_fields": []
+                }
+            user_status_dict[user_id]["status_codes"].append(user_status.status)
+
+            # Add status field names related to the status code
+            related_fields = status_fields.filter(status_code=user_status.status)
+            for field in related_fields:
+                user_status_dict[user_id]["status_fields"].append([user_status.status, field.field_name])
+
+        # Convert the dictionary into a list of dictionaries
+        queryset = list(user_status_dict.values())
+
+        return queryset
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
+
+# List and Create Activity Logs
+class ActivityLogCreateApi(CreateAPIView):
+    queryset = ActivityLog.objects.all()
+    serializer_class = ActivityLogSerializer
+    permission_classes = [CozentusPermission]
+
+    def post(self, request, *args, **kwargs):
+        try:
+            return super().post(request, *args, **kwargs)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ActivityLogFilterApi(APIView):
+    """
+    API to retrieve ActivityLog data with filtering and pagination.
+    """
+    permission_classes = [CozentusPermission]
+
+    @extend_schema(request=ActivityLogFilterSerializer, responses=ActivityLogReadSerializer)
+    def post(self, request):
+        try:
+            # Extract pagination and ordering parameters
+            order_by = request.data.pop('order_by', None)
+            order_type = request.data.pop('order_type', None)
+            page_size = request.data.get("page_size", 50)
+            page = request.data.get("page", 1)
+
+            if page < 1 or page_size < 1:
+                return Response({"message": "Page and page size should be positive integers"},
+                                status=status.HTTP_400_BAD_REQUEST)
+
+            # Initialize filter serializer
+            serializer = ActivityLogFilterSerializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            data = serializer.validated_data
+
+            # Define filter and ordering parameters
+            filter_dict = {
+                "module_id": "module_id",
+                "action_type": "action_type",
+                "action_by": "action_by__icontains",
+                "table_name": "table_name__icontains",
+                "created_by": "created_by",
+                "ip_address": "ip_address",
+                "user_agent": "user_agent__icontains"
+            }
+
+            query_filter = {filter_dict[key]: value for key, value in data.items() if
+                            key in filter_dict and value is not None}
+            queryset = ActivityLog.objects.filter(**query_filter)
+
+            order_by_dict = {
+                "module_id": "module_id",
+                "action_type": "action_type",
+                "action_date": "action_date",
+                "table_name": "table_name"
+            }
+
+            query_order_by = order_by_dict.get(order_by)
+            if order_type == "desc" and query_order_by:
+                query_order_by = f"-{query_order_by}"
+            if query_order_by:
+                queryset = queryset.order_by(query_order_by)
+
+            paginator = Paginator(queryset, page_size)
+            number_pages = paginator.num_pages
+
+            if page > number_pages and page > 1:
+                return Response({"message": "Page not found"}, status=status.HTTP_400_BAD_REQUEST)
+
+            page_obj = paginator.get_page(page)
+            results = ActivityLogReadSerializer(page_obj, many=True)
+
+            return Response({'count': queryset.count(), 'results': results.data}, status=status.HTTP_200_OK)
+
+        except serializers.ValidationError as ve:
+            return Response({"message": str(ve)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as ee:
+            return Response({"message": str(ee)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+# Retrieve, Update, and Delete a specific Activity Log
+class ActivityLogUpdateApi(RetrieveUpdateDestroyAPIView):
+    queryset = ActivityLog.objects.all()
+    serializer_class = ActivityLogSerializer
+
+    def get(self, request, *args, **kwargs):
+        try:
+            return super().get(request, *args, **kwargs)
+        except ActivityLog.DoesNotExist:
+            return Response({'error': 'Activity log not found'}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    def put(self, request, *args, **kwargs):
+        try:
+            return super().put(request, *args, **kwargs)
+        except ActivityLog.DoesNotExist:
+            return Response({'error': 'Activity log not found'}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, *args, **kwargs):
+        try:
+            return super().delete(request, *args, **kwargs)
+        except ActivityLog.DoesNotExist:
+            return Response({'error': 'Activity log not found'}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ModuleEnumListAPIView(APIView):
+    """
+    API view to return the list of modules as defined in ModuleEnum.
+    """
+    permission_classes = [CozentusPermission]
+
+    def get(self, request, *args, **kwargs):
+        # Create the list of dictionaries from the enum
+        modules = [{"module_id": module.value[0], "module_name": module.value[1]} for module in ModuleEnum]
+
+        # Serialize the data
+        serializer = ModuleEnumSerializer(modules, many=True)
+
+        # Return the response
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class LineOfBusinessCreateApi(CreateAPIView):
+    serializer_class = LineOfBusinessSerializer
+    queryset = LineOfBusiness.objects.filter(is_delete=False)
+
+    def perform_create(self, serializer):
+        instance = serializer.save(created_by=self.request.user.id)
+        after_instance = LineOfBusiness.objects.get(pk=instance.pk)
+        log_activity(
+            instance=instance,
+            request=self.request,
+            action_type='UPDATE',
+            before_instance=None,
+            after_instance=after_instance,
+            description="LineOfBusiness updated",
+        )
+
+
+class LineOfBusinessUpdateApi(RetrieveUpdateDestroyAPIView):
+    serializer_class = LineOfBusinessUpdateSerializer
+    queryset = LineOfBusiness.objects.all()
+
+    def perform_update(self, serializer):
+        instance = self.get_object()
+
+        # Save the current state of the instance
+        before_instance = LineOfBusiness.objects.get(pk=instance.pk)
+        serializer.save(updated_by=self.request.user.id, updated_on=timezone.now())
+
+        # Refresh the instance to get the updated values
+        after_instance = LineOfBusiness.objects.get(pk=instance.pk)
+        log_activity(
+            instance=instance,
+            request=self.request,
+            action_type='UPDATE',
+            before_instance=before_instance,
+            after_instance=after_instance,
+            description="LineOfBusiness updated",
+        )
+
+    def delete(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if instance:
+            before_instance = LineOfBusiness.objects.get(pk=instance.pk)
+            log_activity(
+                instance=instance,
+                request=self.request,
+                action_type='DELETE',
+                before_instance=before_instance,
+                after_instance=None,
+                description="LineOfBusiness Deleted",
+            )
+
+            instance.delete()
+            return Response({"message": "LineOfBusiness deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
+        else:
+            return Response({"message": "Record not found."}, status=status.HTTP_404_NOT_FOUND)
+
+
+class LineOfBusinessFilterApi(APIView):
+    serializer_class = LineOfBusinessFilterSerializer
+
+    def post(self, request):
+        try:
+            # Get sorting details
+            order_by = request.data.pop('order_by', 'created_on')  # Default field to sort by
+            order_type = request.data.pop('order_type', 'asc')  # Default order direction
+            page_size = request.data.get("page_size", 50)
+            page = request.data.get("page", 1)
+
+            if page < 1 or page_size < 1:
+                return Response({"message": "Page and page size should be positive integers"},
+                                status=status.HTTP_400_BAD_REQUEST)
+
+            serializer = LineOfBusinessFilterSerializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            data = serializer.validated_data
+
+            filter_dict = {
+                "name": "name__icontains",
+                "is_delete": "is_delete",
+                "is_active": "is_active",
+            }
+
+            query_filter = {filter_dict[key]: value for key, value in data.items() if
+                            key in filter_dict and value is not None}
+            lob_list = LineOfBusiness.objects.filter(**query_filter)
+
+            # Define order_by options
+            order_by_dict = {
+                "name": "name",
+                "created_at": "created_on",
+                "updated_at": "updated_on",
+            }
+
+            # Get the correct field to order by
+            query_order_by = order_by_dict.get(order_by, 'created_on')  # Default to 'created_at' if not provided
+            if order_type == "desc":
+                query_order_by = f"-{query_order_by}"  # Prepend '-' for descending order
+
+            # Apply ordering
+            lob_list = lob_list.order_by(query_order_by)
+
+            paginator = Paginator(lob_list, page_size)
+            number_pages = paginator.num_pages
+
+            if page > number_pages and page > 1:
+                return Response({"message": "Page not found"}, status=status.HTTP_400_BAD_REQUEST)
+
+            page_obj = paginator.get_page(page)
+            results = LineOfBusinessReadSerializer(page_obj, many=True)
+
+            return Response({'count': lob_list.count(), 'results': results.data}, status=status.HTTP_200_OK)
+
+        except serializers.ValidationError as ve:
+            return Response(ve.detail, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as ee:
             return Response(str(ee), status=status.HTTP_400_BAD_REQUEST)

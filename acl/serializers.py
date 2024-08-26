@@ -4,7 +4,7 @@ from django.utils import timezone
 from django.db import transaction
 
 from master_data_management.models import Client
-from .models import (Role, RolePermission, UserRole, MasterPrivilege, ClientPrivilege, AppConfiguration, )
+from .models import (Role, RolePermission, MasterPrivilege, ClientPrivilege, AppConfiguration, )
 
 User = get_user_model()
 
@@ -66,48 +66,6 @@ class PermissionSerializer(serializers.ModelSerializer):
         fields = ("id", "privilege_name", "privilege_desc", "module_id")
 
 
-# class RoleUserSerializer(serializers.ModelSerializer):
-#     role_name = serializers.SerializerMethodField(source='get_role_name', read_only=True)
-#     role_id = serializers.IntegerField(required=True)
-#     user_id = serializers.IntegerField(required=True)
-#
-#     class Meta:
-#         model = UserRole
-#         fields = ("id", "user_id", "role_id", "role_name")
-#
-#     def get_role_name(self, obj):
-#         return obj.role.role_name
-#
-#     def create(self, validated_data):
-#         role_id = validated_data.pop("role_id")
-#         user_id = validated_data.pop("user_id")
-#         role = Role.objects.filter(id=role_id).first()
-#         user = User.objects.filter(id=user_id).first()
-#         if not role and not user:
-#             raise serializers.ValidationError("role id or user id is not valid")
-#
-#         validated_data["role"] = role
-#         validated_data["user"] = user
-#         instance = super(RoleUserSerializer, self).create(validated_data)
-#         return instance
-
-
-# class RoleReadSerializer(serializers.ModelSerializer):
-#     """
-#     This serializer is used for response data of role
-#     """
-#     privilege_names = serializers.SerializerMethodField(source='get_privilege_names', read_only=True)
-#
-#     class Meta:
-#         model = Role
-#         fields = ("id", "role_name", "role_description", "client_id", "privilege_names", "updated_on", "updated_by",
-#                   "created_on",
-#                   "created_by")
-#
-#     def get_privilege_names(self, obj):
-#         permissions = RolePermission.objects.filter(role=obj).values_list("privilege", flat=True)
-#         return PermissionSerializer(MasterPrivilege.objects.filter(id__in=permissions), read_only=True,
-#                                     context=self.context, many=True).data
 class RoleReadSerializer(serializers.ModelSerializer):
     privilege_names = serializers.SerializerMethodField()
     created_by = serializers.CharField(source='created_by.first_name')
@@ -192,39 +150,40 @@ class RoleSerializer(serializers.ModelSerializer):
         except Exception as ee:
             raise serializers.ValidationError("Role name must be unique")
 
-    def update(self, instance, validate_data):
+    def update(self, instance, validated_data):
         """
-        This is an Update method for Role Update
-        It takes role id, role name, role description, privilege id and return the Role object and privilege ids
-        if everything is right otherwise it will return error
+        This is an Update method for Role Update.
+        It takes role id, role name, role description, privilege id and returns the Role object and privilege ids
+        if everything is right; otherwise, it will return an error.
         """
         try:
-            privilege_names = validate_data.get('privilege_names', [])
-            record = instance
+            privilege_names = validated_data.pop('privilege_names', [])
+
+            # Call the parent class's update method to handle the standard update logic
+            record = super().update(instance, validated_data)
+
+            # Check if the provided privileges are valid
             if MasterPrivilege.objects.filter(privilege_name__in=privilege_names).count() != len(set(privilege_names)):
-                raise serializers.ValidationError("please provide valid privilege")
-            role_data = RolePermission.objects.filter(role=record).values_list("privilege__privilege_name", flat=True)
-            with transaction.atomic():
-                role_data = list(role_data)
-                role_data.sort()
-                privilege_names.sort()
-                if not role_data == privilege_names:
+                raise serializers.ValidationError("Please provide valid privilege")
+
+            # Get existing privileges for the role
+            existing_privileges = list(
+                RolePermission.objects.filter(role=record).values_list("privilege__privilege_name", flat=True))
+            existing_privileges.sort()
+            privilege_names.sort()
+            if existing_privileges != privilege_names:
+                with transaction.atomic():
                     RolePermission.objects.filter(role=record).delete()
                     for privilege_name in privilege_names:
                         privilege = MasterPrivilege.objects.filter(privilege_name=privilege_name).first()
-                        RolePermission.objects.create(privilege=privilege, role=instance)
-                record.role_name = validate_data.get('role_name')
-                record.role_description = validate_data.get('role_description')
-                record.client_id = validate_data.get('client_id')
-                # record.updated_by = validate_data.get('updated_by')
-                record.updated_on = timezone.now().astimezone(timezone.timezone.utc)
-                record.is_active = validate_data.get('is_active')
-                record.save()
-                return record
+                        RolePermission.objects.create(privilege=privilege, role=record)
+
+            return record
+
         except serializers.ValidationError as ve:
             raise serializers.ValidationError(ve.detail)
         except Exception as e:
-            raise serializers.ValidationError("Please provide Valid Role and privilege data")
+            raise serializers.ValidationError("Please provide valid Role and privilege data")
 
 
 class RoleMultiUserCreateSerializer(serializers.Serializer):

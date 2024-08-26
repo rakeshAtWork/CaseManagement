@@ -3,9 +3,9 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
-    path('v1/login', views.UserLoginApi.as_view(), name='user-login'),
+    path('v1/login', views.UserLoginApi.as_view(), name='user_login'),
     # login with password - test case written
-    path('v1/list/filter', views.UserFilterApi.as_view(), name='user_list'),
+    path('v1/list', views.UserFilterApi.as_view(), name='user_list'),
     # See the list of User
     path('v1/detail/<int:pk>', views.UserDetailApi.as_view(), name='user_details'),
     # See the detail of particular user
@@ -29,7 +29,7 @@ urlpatterns = [
     path('v1/reset/password', views.UserPasswordResetApi.as_view(), name='user_password_reset'),
     # these above 3 endpoint is for the password reset.
     path('v1/json-info', views.UserJsonDataAPI.as_view(), name='user_details_json'),
-    path('v1/token/generate', views.GenerateTokenView.as_view(), name='generate-token'),
-    path('v1/token/reset/<str:pk>', views.ResetTokenView.as_view(), name='reset-token'),
+    path('v1/token/generate', views.GenerateTokenView.as_view(), name='generate_token'),
+    path('v1/token/reset/<str:pk>', views.ResetTokenView.as_view(), name='reset_token'),
 
 ]
