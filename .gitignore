@@ -1,0 +1,9 @@
+*.idea
+*pycache*
+temp/
+media/
+.venv/
+.env
+htmlcov/
+.coverage
+logs

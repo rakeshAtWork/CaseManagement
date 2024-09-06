@@ -1,0 +1,372 @@
+from django.utils import timezone
+from rest_framework import serializers
+import random
+from threading import Thread
+from django.contrib.auth.password_validation import validate_password
+from django.contrib.auth.hashers import check_password
+from django.core.cache import cache
+from django.shortcuts import get_object_or_404
+from django.contrib.auth.hashers import make_password
+from case_management.utility import new_user_registration_msg, get_random_string, email_send, \
+    account_activate_new_password_msg
+from acl.serializers import RoleShortInfoSerializer
+from .models import CustomUser
+from acl.models import UserRole, Role, RolePermission
+
+from django.core.validators import RegexValidator
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+class UserSerializers(serializers.ModelSerializer):
+    """
+    This Serializer  defines how the user take input in the api
+    """
+    page = serializers.IntegerField(required=False, allow_null=True, write_only=True)
+    page_size = serializers.IntegerField(required=False, allow_null=True, write_only=True)
+    email = serializers.CharField(max_length=100, required=False, allow_blank=True, allow_null=True)
+    first_name = serializers.CharField(max_length=100, required=False, allow_blank=True, allow_null=True)
+    role = serializers.CharField(max_length=100, required=False, allow_blank=True, allow_null=True)
+    last_name = serializers.CharField(max_length=100, required=False, allow_blank=True, allow_null=True)
+    organization_name = serializers.CharField(max_length=100, required=False, allow_blank=True, allow_null=True)
+    phone_number = serializers.CharField(max_length=100, required=False, allow_blank=True, allow_null=True)
+    order_by = serializers.CharField(max_length=100, required=False, allow_blank=True, allow_null=True, write_only=True)
+    order_type = serializers.CharField(max_length=100, required=False, allow_blank=True, allow_null=True,
+                                       write_only=True)
+
+    status = serializers.IntegerField(required=False, allow_null=True)
+    export = serializers.BooleanField(required=False, allow_null=True, default=False)
+    is_active = serializers.BooleanField(required=False)
+
+    class Meta:
+        model = CustomUser
+        fields = ('email', 'first_name', 'last_name', 'organization_name',
+                  'phone_number', 'order_by', 'order_type', 'page', 'page_size', 'status', "role",
+                  "export", 'is_active')
+
+
+class UserReadSerializer(serializers.ModelSerializer):
+    """
+    This serializer is used on the time of responding data for user
+    """
+    role_data = serializers.SerializerMethodField(source='get_role_data', read_only=True)
+    created_by = serializers.SerializerMethodField(source='get_created_by', read_only=True)
+    modified_by = serializers.SerializerMethodField(source='get_updated_by', read_only=True)
+
+    class Meta:
+        model = CustomUser
+        fields = ("id", "email", 'first_name', 'last_name', 'created_on', 'last_login', 'is_active',
+                  'is_delete', 'phone_number', 'modified_on', "last_login", "organisation_name", "timezone",
+                  "country", "created_by", "modified_by", "role_data")
+
+    def get_role_data(self, obj):
+        """
+        This method is used for getting role data as per the user
+        """
+        role = UserRole.objects.filter(user=obj).values_list('role', flat=True)
+        if not role:
+            return []
+        return RoleShortInfoSerializer(Role.objects.filter(id__in=role), read_only=True, context=self.context,
+                                       many=True).data
+
+    @staticmethod
+    def get_created_by(obj):
+        """
+        This method retrieves the name of the user who created the object
+        """
+        if obj.created_by:
+            return f"{obj.first_name} {obj.last_name}"
+        return None
+
+    @staticmethod
+    def get_modified_by(obj):
+        """
+        This method retrieves the name of the user who last modified the object
+        """
+        if obj.modified_by:
+            return f"{obj.first_name} {obj.last_name}"
+        return None
+
+
+class UserProfileReadSerializer(serializers.ModelSerializer):
+    """
+    This serializer is used on the time of responding data for user
+    """
+    role_data = serializers.SerializerMethodField(source='get_role_data', read_only=True)
+    privileges = serializers.SerializerMethodField(source='get_privileges', read_only=True)
+
+    class Meta:
+        model = CustomUser
+        fields = ("id", "email", 'first_name', 'last_name', 'created_on', 'last_login', 'is_active',
+                  'is_delete', 'phone_number', 'modified_on', "last_login", "organisation_name", "timezone",
+                  "country", "created_by", "modified_by", "role_data", "privileges")
+
+    def get_role_data(self, obj):
+        """
+        This method is used for getting role data as per the user
+        """
+        role = UserRole.objects.filter(user=obj).values_list('role', flat=True)
+        if not role:
+            return []
+        return RoleShortInfoSerializer(Role.objects.filter(id__in=role), read_only=True, context=self.context,
+                                       many=True).data
+
+    @staticmethod
+    def get_privileges(obj):
+        roles = UserRole.objects.filter(user=obj).values_list("role", flat=True)
+        privilege = RolePermission.objects.filter(role__in=roles).values_list("privilege__privilege_name", flat=True)
+        return privilege
+
+
+class UserShortInfoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CustomUser
+        fields = ('id', 'email', 'first_name', 'last_name', "phone_number",)
+
+
+class AdminUserRegisterSerializer(serializers.ModelSerializer):
+    """
+    Register new user by admin
+    """
+
+    class Meta:
+        model = CustomUser
+        fields = (
+            'id', 'first_name', 'last_name', 'phone_number', 'email', 'password', 'is_active',
+            'last_login', 'is_delete', "organisation_name", "timezone", "country")
+        read_only_fields = ('last_login', 'is_delete')
+
+    def validate_password(self, value: str) -> str:
+        """
+        Hash value passed by user.
+        :param value: password of a user
+        :return: a hashed version of the password
+        """
+        return make_password(value)
+
+    def create(self, validated_data):
+        validated_data["password"] = make_password(validated_data["password"])
+        instance = super(AdminUserRegisterSerializer, self).create(validated_data)
+        return instance
+
+
+class UserSerializer(serializers.ModelSerializer):
+    role_id = serializers.UUIDField(required=False)
+    is_active = serializers.BooleanField(default=True, required=False)
+    phone_number = serializers.CharField(
+        validators=[
+            RegexValidator(
+                regex=r'^\+?1?\d{9,15}$',
+                message="Phone number must be entered in the format: '+999999999'. Up to 15 digits allowed."
+            )
+        ]
+    )
+
+    class Meta:
+        model = CustomUser
+        fields = ("id", 'first_name', 'last_name', 'phone_number', 'email',
+                  "organisation_name", "timezone", "country", "role_id", 'is_active')
+
+    def create(self, validated_data):
+        role_id = validated_data.pop("role_id", None)
+        random_password = get_random_string()
+        validated_data["password"] = make_password(random_password)
+
+        # Create user instance
+        instance = super().create(validated_data)
+
+        if role_id:
+            try:
+                role = Role.objects.get(id=role_id)
+                UserRole.objects.create(user=instance, role=role, created_by=instance.email)
+            except Exception as e:
+                logger.warning(str(e))
+                raise serializers.ValidationError({"error": str(e), "message": "Invalid role ID provided."})
+
+        try:
+            messages = new_user_registration_msg(user=instance)
+            Thread(target=email_send, args=(instance.email, "New Registration", messages), ).start()
+            logger.info("Email sent successfully..")
+        except Exception as e:
+            logger.warning(str(e))
+            print("Failed to send email to user")
+
+        return instance
+
+
+class UserPasswordSerializer(serializers.ModelSerializer):
+    old_password = serializers.CharField(
+        required=True, style={'input_type': 'old password'}, write_only=True
+    )
+    new_password = serializers.CharField(
+        required=True, style={'input_type': 'new password'}, write_only=True
+    )
+
+    class Meta:
+        extra_kwargs = {
+            'url': {'view_name': 'rest_api:user-detail'}
+        }
+        fields = (
+            'old_password', 'new_password')
+        model = CustomUser
+
+    def validate_old_password(self, value):
+        user = self.context['request'].user
+        if not user.check_password(value):
+            raise serializers.ValidationError({"old_password": "Old password is not correct"})
+        return value
+
+    def validate_new_password(self, value):
+        validate_password(value)
+        return value
+
+    def update(self, instance, validated_data):
+        instance.set_password(validated_data['new_password'])
+        instance.save()
+        return instance
+
+
+class UserForgotPasswordSerializer(serializers.ModelSerializer):
+    class Meta:
+        extra_kwargs = {
+            'url': {'view_name': 'rest_api:user-detail'}
+        }
+        fields = ('email',)
+        model = CustomUser
+
+    def update(self, instance, validated_data):
+        random_key = random.randrange(100000, 999999, 6)
+        # print(random_key)
+        print("Random Key : ", random_key)
+        # TODO password limit should add
+        cache.set(instance.email, random_key, 60 * 15)
+        try:
+            messages = f"Your OTP for reset password : {random_key}"
+            Thread(target=email_send, args=(instance.email, "Forget Password Request", messages), ).start()
+
+            print("Sent email for reset password..")
+
+        except:
+            pass
+        return instance
+
+
+class UserStatusSerializer(serializers.ModelSerializer):
+    class Meta:
+        extra_kwargs = {
+            'url': {'view_name': 'rest_api:user-status'},
+            'is_active': {'required': False}
+        }
+        fields = ('is_active',)
+        model = CustomUser
+
+    def update(self, instance, validated_data):
+        is_active = instance.is_active
+        modified_by = validated_data.get("modified_by")
+        if instance.email == self.context['request'].user.email:
+            raise serializers.ValidationError({"msg": "You can't perform this operation with yourself"})
+        instance.is_active = not is_active
+        instance.modified_by = modified_by
+        instance.modified_on = timezone.now().astimezone(timezone.timezone.utc)
+        instance.save()
+        if instance.is_active and not instance.last_login:
+            random_password = get_random_string(length=12)
+            print(random_password)
+            instance.password = make_password(random_password)
+            instance.save()
+            # sending mail with active status and new_password is added
+            messages = account_activate_new_password_msg(user=instance, new_password=random_password)
+            Thread(target=email_send, args=(instance.email, "New Registration", messages), ).start()
+
+        return instance
+
+
+class UserEditSerializer(serializers.ModelSerializer):
+    """
+    perform retrieve, update serializer for user
+    """
+
+    class Meta:
+        model = CustomUser
+        fields = ('id', 'first_name', 'last_name', 'phone_number', 'email',
+                  "organisation_name", "timezone", "country",)
+
+
+class UserPasswordResetSerializer(serializers.ModelSerializer):
+    """
+       User password reset Models serializer
+       """
+    password = serializers.CharField(
+        required=True, style={'input_type': 'password'}, write_only=True
+    )
+
+    email = serializers.CharField(
+        required=True, style={'input_type': 'user email'}, write_only=True
+    )
+
+    class Meta:
+        fields = ('password', 'email')
+        model = CustomUser
+
+    def create(self, validated_data):
+        try:
+            if cache.get(f'{validated_data["email"]}_verify'):
+                user_data = get_object_or_404(CustomUser.objects.all(), email=validated_data["email"])
+                try:
+                    validate_password(validated_data['password'], user_data)
+                except Exception as exc:
+                    raise serializers.ValidationError({"message": str(exc)})
+                user_data.set_password(validated_data['password'])
+                user_data.save()
+                return user_data
+            else:
+                raise serializers.ValidationError({"message": "Password change time expired please retry new otp"})
+        except IndexError:
+            raise serializers.ValidationError({"message": "Password change time expired please retry new otp"})
+
+
+class UserReadEmailSerializer(serializers.ModelSerializer):
+    """
+    Read user email model serializer
+    """
+
+    class Meta:
+        model = CustomUser
+        fields = ("id", "email", "first_name", "last_name")
+
+
+class OtpVerifySerializer(serializers.Serializer):
+    otp = serializers.IntegerField(
+        required=True, style={'input_type': 'otp'}
+    )
+    email = serializers.CharField(
+        required=True, style={'input_type': 'email'}
+    )
+
+
+class UserLoginSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    password = serializers.CharField(style={'input_type': 'password'}, write_only=True)
+
+    def validate(self, attrs):
+        email = attrs.get('email')
+        password = attrs.get('password')
+
+        if email and password:
+            try:
+                user = CustomUser.objects.get(email=email)
+                if not user.is_active:
+                    logger.info('Inactive user')
+                    raise serializers.ValidationError("Inactive user")
+                if check_password(password, user.password):
+                    return user
+                else:
+                    logger.info('Incorrect password')
+                    raise serializers.ValidationError("Incorrect password.")
+            except CustomUser.DoesNotExist:
+                logger.warning('User does not exist')
+                raise serializers.ValidationError("User with this email does not exist.")
+        else:
+            logger.warning('Missing email or password')
+            raise serializers.ValidationError("Both email and password are required.")

@@ -1,0 +1,25 @@
+[run]
+source = .
+omit =
+    */tests/*
+    manage.py
+    */__init__.py
+    */settings.py
+    */urls.py
+    */wsgi.py
+    */asgi.py
+    */migrations/*
+    */config.py
+    */custom_authentication.py
+    */conftest.py
+    */case_management\graph_api.py
+    */acl\export_excel.py
+    */user_management\forms.py
+    */case_management\custome_exception_handler.py
+
+
+[report]
+fail_under = 85
+
+show_missing = true
+ignore_errors = True
